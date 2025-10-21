@@ -54,11 +54,11 @@ def berechne_kompetenzstufe(ma, taetigkeit, aktuelle_afz):
     reduktion = (initial - aktuelle_afz) / differenz
     reduktion = max(0, min(reduktion, 1))
 
-    if reduktion < 0.70:
+    if reduktion < 0.5:
         return 1
-    if reduktion < 0.75:
+    if reduktion < 0.6:
         return 2
-    if reduktion < 0.78:
+    if reduktion < 0.7:
         return 3
     if reduktion < 0.8:
         return 4

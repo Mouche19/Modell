@@ -1,12 +1,60 @@
+import math
+from itertools import cycle
+from typing import List, Optional
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib import cm, colors
+from matplotlib.patches import Patch
+
+# Einheitliche Schriftart und -größe für alle Diagramme festlegen.
+plt.rcParams.update({
+    "font.family": "Arial",
+    "font.size": 10,
+})
+
 import Simulation_Berechnungen as Berechnung
 import Simulation_Eingabe as Eingabe
 import Simulation_Output as Output_Tabellen
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import cm, colors
-from itertools import cycle
-from matplotlib.patches import Patch
-import numpy as np
+
+
+# Schwellenwerte für die Kompetenzstufen aus ``Simulation_Engine.SimulationRunner``.
+# Die Werte geben an, ab welcher relativen Reduktion (in Dezimalform) die nächste
+# Kompetenzstufe erreicht wird. Die Angaben werden für die Achsenbeschriftung der
+# "Kompetenzentwicklung"-Diagramme genutzt. Bei Änderungen der zugrunde liegenden
+# Logik in ``Simulation_Engine`` sollte diese Liste ebenfalls angepasst werden.
+KOMPETENZSTUFEN_SCHWELLEN = { 
+    1: 0.5,
+    2: 0.6,
+    3: 0.7,
+    4: 0.8,
+}
+
+def _formatiere_prozentwert(wert: float) -> str:
+    """Gibt einen Prozentwert ohne überflüssige Nachkommastellen zurück."""
+
+    prozent = wert * 100
+    if abs(prozent - round(prozent)) < 1e-9:
+        return f"{int(round(prozent))} %"
+    return f"{prozent:.1f} %"
+
+
+def _ermittle_kompetenz_ticklabels() -> List[str]:
+    """Erzeugt Achsenbeschriftungen für Kompetenzstufen inkl. Prozentwert."""
+
+    labels: List[str] = []
+    fuer_stufe_5 = KOMPETENZSTUFEN_SCHWELLEN.get(4, 0.9)
+    for stufe in range(1, 6):
+        if stufe < 5:
+            schwelle = KOMPETENZSTUFEN_SCHWELLEN.get(stufe)
+            if schwelle is None:
+                labels.append(str(stufe))
+                continue
+            labels.append(f"{stufe} (< {_formatiere_prozentwert(schwelle)})")
+        else:
+            labels.append(f"{stufe} (≥ {_formatiere_prozentwert(fuer_stufe_5)})")
+    return labels
 
 ANZEIGE_MITARBEITENDE = list(getattr(Berechnung, "simulierte_mitarbeitende", []))
 if not ANZEIGE_MITARBEITENDE:
@@ -15,15 +63,6 @@ if not ANZEIGE_MITARBEITENDE:
     raise ValueError(
         "Es sind keine Mitarbeitenden für die grafische Darstellung definiert."
     )
-
-# Festlegen des Zeitraums in Stunden
-Betrachtungsintervall = 8  # Angabe im Stundenformat -> Bsp.: 30min -> Betrachtungsintervall = 0.5
-# Anzahl der anzegeigten Balken ACHTUNG: Abhängig von dem festgelegten Zeitraum
-ANZAHL_BALKEN = 6 # Wenn alle Balken angezeigt werden sollen: Wert 0 eingeben
-# Angabe zu Jobspezifischem Output:
-JOB_FILTER = 'alle' # Angabe entweder als Jobname: 'J1' oder 'alle'
-
-
 
 '''
 IFA Standardgrau Farbtabelle:
@@ -36,31 +75,36 @@ IFA Standardgrau Farbtabelle:
 '''
 #farben = ['#B2B2B2', '#4C4C4C', '#000000', '#676767']  # Farben werden in der Grafik von vorne nach hinten verwendet. Nach der letzten Farbe wird wieder die erste verwendet
 
+# Farbpalette gemäß Vorgabe (Zeilenweise aus der bereitgestellten Vorlage gelesen).
+FARBPALETTE_HEX = [
+    "#d8234f",  # kräftiges Rot
+#    "#101010",  # Schwarz
+    "#004f9d",  # kräftiges Blau
+    "#7b0f2f",  # dunkles Rot
+    "#6f6f73",  # Mittelgrau
+    "#0b2f60",  # dunkles Blau
+    "#f27d9b",  # Pink
+    "#b6b7ba",  # helles Grau
+    "#78a7d3",  # Hellblau
+    "#f6c1d3",  # zartes Rosa
+    "#dedfe0",  # sehr helles Grau
+    "#b9cee6",  # sehr helles Blau
+]
+
 # Konfigurationsoptionen für die Farbgebung der Kurven.
 # modus="liste"   → es wird die definierte HEX-Liste verwendet (default unten).
 # modus="colormap" → Farben werden aus einer Matplotlib-Colormap erzeugt (z. B. "tab10", "tab20", "Set2", ...).
 FARBSCHEMA = {
-    "modus": "colormap",  # mögliche Werte: "liste" oder "colormap"
-    "liste": [
-        "#B2B2B2",
-        "#4C4C4C",
-        "#000000",
-        "#676767",
-    ],
+    "modus": "liste",  # mögliche Werte: "liste" oder "colormap"
+    "liste": FARBPALETTE_HEX,
     "colormap": "tab10",  # wird nur verwendet, wenn modus="colormap"
 }
 
-# Spezielle Farbgebung für die Gesamtproduktivität, damit sie sich visuell von den
-# Mitarbeitendenplots abhebt.
+# Spezielle Farbgebung für die Gesamtproduktivität – nutzt dieselbe Palette,
+# damit alle Diagramme konsistent eingefärbt werden.
 FARBSCHEMA_GESAMT = {
     "modus": "liste",
-    "liste": [
-        "#264653",
-        "#2a9d8f",
-        "#e9c46a",
-        "#f4a261",
-        "#e76f51",
-    ],
+    "liste": FARBPALETTE_HEX,
     "colormap": "Dark2",
 }
 
@@ -150,6 +194,39 @@ def generiere_farben(anzahl_farben: int, schema: dict | None = None):
         farben = (farben * vielfaches)[:anzahl_farben]
 
     return farben
+
+
+TAETIGKEITEN_FARBEN_BASIS = generiere_farben(len(Eingabe.taetigkeiten_liste))
+if TAETIGKEITEN_FARBEN_BASIS:
+    TAETIGKEIT_FARBEN = {
+        taetigkeit: TAETIGKEITEN_FARBEN_BASIS[idx % len(TAETIGKEITEN_FARBEN_BASIS)]
+        for idx, taetigkeit in enumerate(Eingabe.taetigkeiten_liste)
+    }
+else:
+    TAETIGKEIT_FARBEN = {}
+
+
+def _farbe_fuer_taetigkeit(
+    taetigkeit: str, fallback_farben: Optional[List[str]], index: int
+) -> Optional[str]:
+    """Gibt die konfigurierte Farbe für ``taetigkeit`` zurück."""
+
+    if taetigkeit in TAETIGKEIT_FARBEN:
+        return TAETIGKEIT_FARBEN[taetigkeit]
+
+    if fallback_farben:
+        return fallback_farben[index % len(fallback_farben)]
+
+    return None
+
+
+# Festlegen des Zeitraums in Stunden
+Betrachtungsintervall = 8  # Angabe im Stundenformat -> Bsp.: 30min -> Betrachtungsintervall = 0.5
+# Anzahl der anzegeigten Balken ACHTUNG: Abhängig von dem festgelegten Zeitraum
+ANZAHL_BALKEN = 6 # Wenn alle Balken angezeigt werden sollen: Wert 0 eingeben
+# Angabe zu Jobspezifischem Output:
+JOB_FILTER = 'alle' # Angabe entweder als Jobname: 'J1' oder 'alle'
+
 
 # Sammelcontainer für die spätere Gesamtproduktivität über alle Mitarbeitenden
 gesamt_produktivitaet_rows = []
@@ -256,7 +333,13 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
     )
 
     
-    farben = generiere_farben(len(Eingabe.taetigkeiten_liste))
+    basis_taetigkeitsfarben = TAETIGKEITEN_FARBEN_BASIS or generiere_farben(
+        len(Eingabe.taetigkeiten_liste)
+    )
+    farben = [
+        _farbe_fuer_taetigkeit(t, basis_taetigkeitsfarben, idx)
+        for idx, t in enumerate(Eingabe.taetigkeiten_liste)
+    ]
 
     if has_curve_data:
         for i, t in enumerate(Eingabe.taetigkeiten_liste):
@@ -306,24 +389,25 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
             plot_AFZ_Tabelle.get('DurchlaufNr'), errors='coerce'
         ).dropna()
         if not max_durchlauf.empty:
-            max_wert = max_durchlauf.max()
-            ax.set_xlim(left=0, right=max_wert)
-            if max_wert > 0:
-                schrittweite = max(1, int(max_wert) // 10)
-                xticks = list(range(0, int(max_wert) + 1, schrittweite or 1))
-                if xticks and xticks[-1] != int(max_wert):
-                    xticks.append(int(max_wert))
+            max_wert = int(math.ceil(max_durchlauf.max()))
+            if max_wert <= 0:
+                ax.set_xlim(left=0, right=1)
+                ax.set_xticks([0])
+            else:
+                obergrenze = max(500, int(math.ceil(max_wert / 500.0) * 500))
+                ax.set_xlim(left=0, right=obergrenze)
+                xticks = list(range(0, obergrenze + 1, 500))
                 if not xticks:
                     xticks = [0]
                 ax.set_xticks(xticks)
-            else:
-                ax.set_xticks([0])
+        else:
+            ax.set_xticks([0])
     else:
         ax.set_xticks([])
         ax.set_yticks([])
         ax.grid(False)
 
-    plot_filename = f"Lern- und Vergessensverhalten_{mitarbeiter_id}.png"
+    plot_filename = f"Lern- und Vergessensverhalten_{mitarbeiter_id}.svg"
  
     fig.savefig(plot_filename, dpi=300)  # Speichert die Grafik im PNG-Format mit einer Auflösung von 300 DPI
     plt.close(fig)
@@ -386,7 +470,9 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
         afz_values = timeline_df[taetigkeit]
         fig, ax1 = plt.subplots(figsize=(10, 6))
 
-        kurvenfarbe_basis = farben[index % len(farben)] if farben else None
+        kurvenfarbe_basis = _farbe_fuer_taetigkeit(
+            taetigkeit, farben, index
+        )
 
         x_werte = timeline_df["DurchlaufNr"].to_numpy()
         ax1.plot(
@@ -430,26 +516,29 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
 
         min_x = 0
         max_x = 0
+        anzeige_max = min_x
         if len(x_werte) > 0:
-            max_x = int(np.nanmax(x_werte))
+            max_x = int(math.ceil(float(np.nanmax(x_werte))))
             if max_x <= min_x:
                 ax1.set_xlim(left=min_x, right=min_x + 1)
                 ax1.set_xticks([min_x])
             else:
-                ax1.set_xlim(left=min_x, right=max_x)
-                schrittweite = max(1, (max_x - min_x) // 10)
-                xticks = list(range(min_x, max_x + 1, schrittweite or 1))
-                if xticks and xticks[-1] != max_x:
-                    xticks.append(max_x)
+                obergrenze = max(500, int(math.ceil(max_x / 500.0) * 500))
+                anzeige_max = obergrenze
+                ax1.set_xlim(left=min_x, right=obergrenze)
+                xticks = list(range(min_x, obergrenze + 1, 500))
                 if not xticks:
                     xticks = [min_x]
                 ax1.set_xticks(xticks)
+
+        if max_x > min_x and anzeige_max == min_x:
+            anzeige_max = max_x
 
         if round_boundaries:
             boundary_label_added = False
             for boundary in round_boundaries:
                 x_position = boundary["DurchlaufNr"] + 0.5
-                if x_position < min_x or x_position > max_x + 1:
+                if x_position < min_x or x_position > anzeige_max + 1:
                     continue
                 label = "Rundenende" if not boundary_label_added else None
                 ax1.axvline(
@@ -477,7 +566,7 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
             ax1.legend(lines_1, labels_1, loc="best")
 
         einzel_plot_filename = (
-            f"Lern- und Vergessensverhalten_{mitarbeiter_id}_{taetigkeit}.png"
+            f"Lern- und Vergessensverhalten_{mitarbeiter_id}_{taetigkeit}.svg"
         )
         fig.savefig(einzel_plot_filename, dpi=300)
         plt.close(fig)
@@ -554,8 +643,31 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
             kompetenz_pivot = kompetenz_pivot.dropna(how="all")
 
         if not kompetenz_pivot.empty:
+            spaltenreihenfolge = [
+                taetigkeit
+                for taetigkeit in Eingabe.taetigkeiten_liste
+                if taetigkeit in kompetenz_pivot.columns
+            ]
+            spaltenreihenfolge += [
+                spalte
+                for spalte in kompetenz_pivot.columns
+                if spalte not in spaltenreihenfolge
+            ]
+            kompetenz_pivot = kompetenz_pivot.reindex(columns=spaltenreihenfolge)
+
+        if not kompetenz_pivot.empty:
             fig, ax = plt.subplots(figsize=(10, 5))
-            kompetenz_farben = generiere_farben(kompetenz_pivot.shape[1])
+            basis_farben = TAETIGKEITEN_FARBEN_BASIS or generiere_farben(
+                kompetenz_pivot.shape[1]
+            )
+            kompetenz_farben = [
+                _farbe_fuer_taetigkeit(
+                    column,
+                    basis_farben,
+                    idx,
+                )
+                for idx, column in enumerate(kompetenz_pivot.columns)
+            ]
             markerzyklus = cycle(["o", "^", "s", "D", "v", "*"])
 
             x_positionen = np.arange(len(kompetenz_pivot.index))
@@ -572,16 +684,17 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
 
             ax.set_title(f"Kompetenzentwicklung nach Arbeitstagen ({mitarbeiter_id})")
             ax.set_xlabel('Arbeitstag')
-            ax.set_ylabel('Kompetenzstufe')
+            ax.set_ylabel('Kompetenzstufe (Reduktionsgrad)')
             ax.set_xticks(x_positionen)
             ax.set_xticklabels(kompetenz_pivot.index, rotation=45, ha='right')
             ax.set_ylim(1, 5)
             ax.set_yticks(range(1, 6))
+            ax.set_yticklabels(_ermittle_kompetenz_ticklabels())
             ax.grid(True, axis='both', linestyle='--', alpha=0.3)
             ax.legend(title='Tätigkeit (Markerformen wiederholen sich bei Bedarf)', loc='best')
 
             fig.tight_layout()
-            fig.savefig(f"Kompetenzentwicklung_{mitarbeiter_id}.png", dpi=300)
+            fig.savefig(f"Kompetenzentwicklung_{mitarbeiter_id}.svg", dpi=300)
             plt.close(fig)
 
 
@@ -705,7 +818,7 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
             ax.legend(handles=muster_handles, loc='upper right')
 
             fig.tight_layout()
-            fig.savefig(f"Produktivitaet_{mitarbeiter_id}.png", dpi=300)
+            fig.savefig(f"Produktivitaet_{mitarbeiter_id}.svg", dpi=300)
             plt.close(fig)
 
             produktivitaet_pro_tag_ohne = produktivitaet_df.pivot_table(
@@ -810,7 +923,7 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
                 ax.legend(handles=muster_handles, loc='upper right')
 
                 fig.tight_layout()
-                fig.savefig(f"Produktivitaet_Tag_{mitarbeiter_id}.png", dpi=300)
+                fig.savefig(f"Produktivitaet_Tag_{mitarbeiter_id}.svg", dpi=300)
                 plt.close(fig)
 
 # Gesamtproduktivität über alle betrachteten Mitarbeitenden visualisieren
@@ -951,5 +1064,5 @@ if gesamt_produktivitaet_rows:
         ax.legend(handles=muster_handles, loc='upper right')
 
         fig.tight_layout()
-        fig.savefig('Produktivitaet_Tag_Gesamt.png', dpi=300)
+        fig.savefig('Produktivitaet_Tag_Gesamt.svg', dpi=300)
         plt.close(fig)

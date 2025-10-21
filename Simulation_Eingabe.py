@@ -2,23 +2,21 @@ from Simulation_Lernkurve import Lernkurve
 from Simulation_Vergessenskurve import Vergessenskurve
 
 
+'''Allgemeine-Parameter'''
 
-
-'''Allgemeine-Parameter''' 
-
-Betrachtungszeitraum = 9 # inkl. Wochenende angeben
-Abwesenheit_1 = 3600*16 # Abwesenheit zwischen den Schichten = 16h
-Abwesenheit_2 = 3600*72 # Abwesenheit am Wochenende = 72h sind das nicht eigentlich 64h?
+Betrachtungszeitraum = 3  # inkl. Wochenende angeben
+Abwesenheit_1 = 3600*16  # Abwesenheit zwischen den Schichten = 16h
+Abwesenheit_2 = 3600*64  # Abwesenheit am Wochenende = 64h (10h + 48 + 6h)
 
 '''Vergessenskurvenparameter'''
-ZI = 3600 # hat einfluss auf die Vergessenskurve (je größer das Zeitintervall [ZI] gewählt desto langsamer wird vergessen)
+ZI = 3600  # hat einfluss auf die Vergessenskurve (je größer das Zeitintervall [ZI] gewählt desto langsamer wird vergessen)
 
 '''Job-Parameter'''
 ##########
 # EINGABE ERFORDERLICH:
 jobs = ["J1", "J2", "J3"]  # Jobs und ihre Zuordnung zu Tätigkeiten
 taetigkeiten_liste = ["T1", "T2", "T3", "T4", "T5"]
-#taetigkeiten_liste = ["T1", "T2", "T3", "T4", "T5", "T6"]
+# taetigkeiten_liste = ["T1", "T2", "T3", "T4", "T5", "T6"]
 jobs_zuordnung = {
     "J1": ["T1", "T2"],  # J1 erfordert T1 und T3
     "J2": ["T2", "T3"],  # J2 erfordert T2 und T3
@@ -62,7 +60,7 @@ jobprofil_aenderungen = [
     #     "start_tag": 6,
     #     "beschreibung": "Produktwechsel in Linie J1",  # zurück zum ursprünglichen Tätigkeitsprofil
     #     "jobs": {
-    #         "J1": ["T1", "T2"],  
+    #         "J1": ["T1", "T2"],
     #         "J2": ["T2", "T3"]
     #     },
     # },
@@ -158,7 +156,7 @@ ersatz_standardparameter = {
 
 # Lernfaktoren für Mitarbeitende (pro Tätigkeit)
 LF_MA = {
-    "MA1": {"T1": -0.50, "T2": -0.32, "T3": -0.25, "T4": -0.25, "T5": -0.25},
+    "MA1": {"T1": -0.1, "T2": -0.32, "T3": -0.25, "T4": -0.25, "T5": -0.25},
     "MA2": {"T1": -0.45, "T2": -0.30, "T3": -0.28, "T4": -0.25, "T5": -0.25},
     "MA3": {"T1": -0.4, "T2": -0.25, "T3": -0.2, "T4": -0.25, "T5": -0.25},
 }
@@ -200,16 +198,17 @@ standard_fehlerquote = {
     5: 0.02,
 }
 
-# Fehlerquoten können pro Mitarbeitendem und Tätigkeit angepasst werden
+# Fehlerquoten pro Mitarbeitendem und Tätigkeit
 fehlerquote_parameter = {
-    ma: {taetigkeit: dict(standard_fehlerquote) for taetigkeit in taetigkeiten_liste}
+    ma: {taetigkeit: dict(standard_fehlerquote)
+         for taetigkeit in taetigkeiten_liste}
     for ma in mitarbeitende
 }
 
 # Geplanter Output pro Ausführung einer Tätigkeit (Stückzahl)
 output_pro_ausfuehrung = {taetigkeit: 1 for taetigkeit in taetigkeiten_liste}
 
-# Arbeitsrunden und Job-Zuordnung
+# Arbeitsrunden und Job-Zuordnung (müssen ein Tag ergeben)
 arbeitsrunden = [
     {
         "name": "Runde 1",
@@ -246,11 +245,12 @@ arbeitsrunden = [
 # Aus den Arbeitsrunden abgeleitete Dauerparameter
 gesamt_pausenzeit = sum(runde.get("pause", 0) for runde in arbeitsrunden)
 arbeitszeit_pro_tag = sum(runde["arbeitszeit"] for runde in arbeitsrunden)
-Schichtdauer = arbeitszeit_pro_tag + gesamt_pausenzeit  # Gesamtdauer inkl. Pausen (8h)
+Schichtdauer = arbeitszeit_pro_tag + \
+    gesamt_pausenzeit  # Gesamtdauer inkl. Pausen (8h)
 Pausen = gesamt_pausenzeit  # Gesamtpausenzeit pro Schicht (60 Minuten)
 
 
-##########Lern- und Vergessenskurven Initialisieren##########
+########## Lern- und Vergessenskurven Initialisieren##########
 # Initialisierung der Lern- und Vergessenskurven pro Mitarbeitendem
 lernkurve_mitarbeiter = {
     ma: Lernkurve(

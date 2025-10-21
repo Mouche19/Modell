@@ -149,6 +149,9 @@ class StoerungsEreignis:
 class SimulationRunner:
     """Execute the competency and throughput simulation."""
 
+    FEHLERARM_FEHLERQUOTE = 0.02
+    FEHLERARM_MIN_REDUKTION = 0.85
+
     def __init__(
         self,
         eingabe_module: Any,
@@ -1553,6 +1556,8 @@ class SimulationRunner:
         self.m_tag_label[ma] = self._aktuelles_label(ma)
 
     def _ermittle_kompetenzstufe(self, ma: str, taetigkeit: str, aktuelle_afz: float) -> int:
+        if getattr(self, "_fehlerfrei_flag", False):
+            return 5
         parameter = self.kompetenz_parameter[ma][taetigkeit]
         initial = parameter["initial"]
         differenz = parameter["differenz"]
@@ -1560,16 +1565,32 @@ class SimulationRunner:
             return 5 if aktuelle_afz <= initial else 1
         reduktion = (initial - aktuelle_afz) / differenz
         reduktion = max(0, min(reduktion, 1))
-        if reduktion < 0.3:
-            return 1
         if reduktion < 0.5:
+            return 1
+        if reduktion < 0.6:
             return 2
         if reduktion < 0.7:
             return 3
-        if reduktion < 0.9:
+        if reduktion < 0.8:
             return 4
         return 5
-
+    
+    def _wende_fehlerarme_ausfuehrungszeit_an(
+        self,
+        ma: str,
+        taetigkeit: str,
+        aktuelle_afz: float,
+    ) -> float:
+        if not getattr(self, "_fehlerfrei_flag", False):
+            return aktuelle_afz
+        parameter = self.kompetenz_parameter[ma][taetigkeit]
+        differenz = parameter["differenz"]
+        if differenz <= 0:
+            return aktuelle_afz
+        ziel_afz = parameter["initial"] - differenz * self.FEHLERARM_MIN_REDUKTION
+        ziel_afz = max(parameter["grenzwert"], ziel_afz)
+        return min(aktuelle_afz, ziel_afz)
+    
     def _ermittle_fehlerquote(
         self,
         ma: str,
@@ -1789,6 +1810,7 @@ class SimulationRunner:
         task_position = self.job_task_index[ma][job] % len(job_tasks)
         taetigkeit = job_tasks[task_position]
         aktuelle_afz = self._lernen(ma, taetigkeit, self.AFA_pre[ma][taetigkeit])
+        aktuelle_afz = self._wende_fehlerarme_ausfuehrungszeit_an(ma, taetigkeit, aktuelle_afz)
         parameter = self.kompetenz_parameter[ma][taetigkeit]
         differenz = parameter["differenz"]
         if differenz > 0:
@@ -1798,10 +1820,14 @@ class SimulationRunner:
             )
         else:
             reduktion_rel = 1 if aktuelle_afz <= parameter["initial"] else 0
-        kompetenzstufe = self._ermittle_kompetenzstufe(ma, taetigkeit, aktuelle_afz)
-        fehlerquote = 0.0
-        if not fehlerfrei:
-            fehlerquote = self._ermittle_fehlerquote(ma, taetigkeit, kompetenzstufe, reduktion_rel)
+        if fehlerfrei:
+            kompetenzstufe = 5
+            fehlerquote = self.FEHLERARM_FEHLERQUOTE
+        else:
+            kompetenzstufe = self._ermittle_kompetenzstufe(ma, taetigkeit, aktuelle_afz)
+            fehlerquote = self._ermittle_fehlerquote(
+                ma, taetigkeit, kompetenzstufe, reduktion_rel
+            )
         fehlerquote = max(0.0, min(fehlerquote, 1.0))
         output_geplant = max(0.0, self._ermittle_outputmenge(ma, taetigkeit))
         if aktuelle_afz > self.zustand_arbeitszeit[ma]:
@@ -1870,6 +1896,11 @@ class SimulationRunner:
         df_map[taetigkeit].loc[i + 1, "AFA_pre"] = self.AFA_post[ma][taetigkeit]
         self.AFZ_post[ma][taetigkeit] = self._lernen(
             ma, taetigkeit, self.AFA_post[ma][taetigkeit]
+        )
+        self.AFZ_post[ma][taetigkeit] = self._wende_fehlerarme_ausfuehrungszeit_an(
+            ma,
+            taetigkeit,
+            self.AFZ_post[ma][taetigkeit],
         )
         self.AFZ_last[ma][taetigkeit] = self.AFZ_post[ma][taetigkeit]
         df_map[taetigkeit].loc[i, "AFZ_post"] = self.AFZ_post[ma][taetigkeit]
@@ -1980,7 +2011,7 @@ class SimulationRunner:
                 reduktion_rel = 1 if aktuelle_afz <= parameter["initial"] else 0
             fehlerquote_tag = 0.0
             if getattr(self, "_fehlerfrei_flag", False):
-                fehlerquote_tag = 0.0
+                fehlerquote_tag = self.FEHLERARM_FEHLERQUOTE
             else:
                 fehlerquote_tag = self._ermittle_fehlerquote(ma, t, kompetenzstufe, reduktion_rel)
             self.kompetenz_protokoll[label].append(
@@ -2019,7 +2050,7 @@ class SimulationRunner:
                     reduktion_rel = 1 if aktuelle_afz <= parameter["initial"] else 0
                 fehlerquote_tag = 0.0
                 if getattr(self, "_fehlerfrei_flag", False):
-                    fehlerquote_tag = 0.0
+                    fehlerquote_tag = self.FEHLERARM_FEHLERQUOTE
                 else:
                     fehlerquote_tag = self._ermittle_fehlerquote(ma, t, kompetenzstufe, reduktion_rel)
                 self.kompetenz_protokoll[label].append(
