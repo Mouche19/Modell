@@ -8,7 +8,7 @@ import pandas as pd
 from matplotlib import cm, colors
 from matplotlib.patches import Patch
 
-# Einheitliche Schriftart und -größe für alle Diagramme festlegen.
+# Einheitliche Schriftart und -größe für alle Diagramme 
 plt.rcParams.update({
     "font.family": "Arial",
     "font.size": 10,
@@ -19,11 +19,11 @@ import Simulation_Eingabe as Eingabe
 import Simulation_Output as Output_Tabellen
 
 
-# Schwellenwerte für die Kompetenzstufen aus ``Simulation_Engine.SimulationRunner``.
+# Schwellenwerte für die Kompetenzstufen aus Simulation_Engine.SimulationRunner
 # Die Werte geben an, ab welcher relativen Reduktion (in Dezimalform) die nächste
 # Kompetenzstufe erreicht wird. Die Angaben werden für die Achsenbeschriftung der
-# "Kompetenzentwicklung"-Diagramme genutzt. Bei Änderungen der zugrunde liegenden
-# Logik in ``Simulation_Engine`` sollte diese Liste ebenfalls angepasst werden.
+# Kompetenzentwicklung-Diagramme genutzt. Bei Änderungen der zugrunde liegenden
+# Logik (also Schwellwerte) in Simulation_Engine sollte diese Liste ebenfalls angepasst werden.
 KOMPETENZSTUFEN_SCHWELLEN = { 
     1: 0.5,
     2: 0.6,
@@ -31,18 +31,16 @@ KOMPETENZSTUFEN_SCHWELLEN = {
     4: 0.8,
 }
 
-def _formatiere_prozentwert(wert: float) -> str:
-    """Gibt einen Prozentwert ohne überflüssige Nachkommastellen zurück."""
-
+def _formatiere_prozentwert(wert: float) -> str: # gibt einen Prozentwert ohne überflüssige Nachkommastellen zurück
+    
     prozent = wert * 100
     if abs(prozent - round(prozent)) < 1e-9:
         return f"{int(round(prozent))} %"
     return f"{prozent:.1f} %"
 
 
-def _ermittle_kompetenz_ticklabels() -> List[str]:
-    """Erzeugt Achsenbeschriftungen für Kompetenzstufen inkl. Prozentwert."""
-
+def _ermittle_kompetenz_ticklabels() -> List[str]: # Erzeugt Achsenbeschriftungen für Kompetenzstufen inkl. Prozentwert
+    
     labels: List[str] = []
     fuer_stufe_5 = KOMPETENZSTUFEN_SCHWELLEN.get(4, 0.9)
     for stufe in range(1, 6):
@@ -64,21 +62,11 @@ if not ANZEIGE_MITARBEITENDE:
         "Es sind keine Mitarbeitenden für die grafische Darstellung definiert."
     )
 
-'''
-IFA Standardgrau Farbtabelle:
-    255/255/255 → #FFFFFF
-    247/247/247 → #F7F7F7
-    178/178/178 → #B2B2B2
-    103/103/103 → #676767
-    76/76/76 → #4C4C4C
-    0/0/0 → #000000
-'''
-#farben = ['#B2B2B2', '#4C4C4C', '#000000', '#676767']  # Farben werden in der Grafik von vorne nach hinten verwendet. Nach der letzten Farbe wird wieder die erste verwendet
 
-# Farbpalette gemäß Vorgabe (Zeilenweise aus der bereitgestellten Vorlage gelesen).
+# IFA-Farbpalette für Grafiken
 FARBPALETTE_HEX = [
     "#d8234f",  # kräftiges Rot
-#    "#101010",  # Schwarz
+#    "#101010",  # Schwarz, erschwert Analyse einiger Grafiken
     "#004f9d",  # kräftiges Blau
     "#7b0f2f",  # dunkles Rot
     "#6f6f73",  # Mittelgrau
@@ -92,16 +80,16 @@ FARBPALETTE_HEX = [
 ]
 
 # Konfigurationsoptionen für die Farbgebung der Kurven.
-# modus="liste"   → es wird die definierte HEX-Liste verwendet (default unten).
-# modus="colormap" → Farben werden aus einer Matplotlib-Colormap erzeugt (z. B. "tab10", "tab20", "Set2", ...).
+# modus="liste" → es wird die definierte HEX-Liste (IFA-Farbpalette) verwendet
+# modus="colormap" → Farben werden aus einer Matplotlib-Colormap erzeugt 
 FARBSCHEMA = {
     "modus": "liste",  # mögliche Werte: "liste" oder "colormap"
     "liste": FARBPALETTE_HEX,
     "colormap": "tab10",  # wird nur verwendet, wenn modus="colormap"
 }
 
-# Spezielle Farbgebung für die Gesamtproduktivität – nutzt dieselbe Palette,
-# damit alle Diagramme konsistent eingefärbt werden.
+# Spezielle Farbgebung für die Gesamtproduktivität (kann nach Bedarf verändert werden), nutzt momentan dieselbe Palette,
+# damit alle Diagramme konsistent eingefärbt werden
 FARBSCHEMA_GESAMT = {
     "modus": "liste",
     "liste": FARBPALETTE_HEX,
@@ -109,9 +97,8 @@ FARBSCHEMA_GESAMT = {
 }
 
 
-def _sample_colormap(cmap, anzahl_farben: int):
-    """Gibt ``anzahl_farben`` Hexfarben zurück, die aus ``cmap`` entnommen werden."""
-
+def _sample_colormap(cmap, anzahl_farben: int): # für die Nutzung der Matplotlib-Farben (optional)
+    
     if anzahl_farben <= 0:
         return []
 
@@ -123,9 +110,8 @@ def _sample_colormap(cmap, anzahl_farben: int):
     return [colors.to_hex(cmap(point)) for point in sample_points]
 
 
-def _ermittle_colormap(cmap_name: str):
-    """Gibt eine Matplotlib-Colormap anhand ihres Namens zurück."""
-
+def _ermittle_colormap(cmap_name: str): # für die Nutzung der Matplotlib-Farben, gibt eine Matplotlib-Colormap anhand ihres Namens zurück (optional)
+    
     try:
         registry = plt.colormaps()
     except Exception:
@@ -148,8 +134,7 @@ def _ermittle_colormap(cmap_name: str):
     return None
 
 
-def _farben_aus_colormap(cmap_name: str, anzahl_farben: int):
-    """Versucht, eine Matplotlib-Colormap anhand des Namens zu nutzen."""
+def _farben_aus_colormap(cmap_name: str, anzahl_farben: int): # für die Nutzung der Matplotlib-Farben, versucht, eine Matplotlib-Colormap anhand des Namens zu nutzen (optional)
 
     if anzahl_farben <= 0:
         return []
@@ -161,8 +146,7 @@ def _farben_aus_colormap(cmap_name: str, anzahl_farben: int):
     return _sample_colormap(cmap, anzahl_farben)
 
 
-def generiere_farben(anzahl_farben: int, schema: dict | None = None):
-    """Erzeugt eine Farbpalette gemäß der Konfiguration in ``schema``."""
+def generiere_farben(anzahl_farben: int, schema: dict | None = None): # erzeugt eine Farbpalette gemäß der Konfiguration
 
     if anzahl_farben <= 0:
         return []
@@ -179,8 +163,7 @@ def generiere_farben(anzahl_farben: int, schema: dict | None = None):
         farben = schema.get("liste", [])
 
     if not farben:
-        # Fallback auf tab10, falls keine Farben konfiguriert wurden.
-        farben = _farben_aus_colormap("tab10", anzahl_farben)
+        farben = _farben_aus_colormap("tab10", anzahl_farben) # Fallback auf tab10, falls keine Farben konfiguriert wurden
 
     if not farben:
         prop_cycle = plt.rcParams.get("axes.prop_cycle")
@@ -188,15 +171,14 @@ def generiere_farben(anzahl_farben: int, schema: dict | None = None):
             cycle_colors = [eintrag.get("color") for eintrag in prop_cycle if "color" in eintrag]
             farben = [farbe for farbe in cycle_colors if farbe]
 
-    # Bei Bedarf wird die Liste verlängert, sodass ausreichend Farben zur Verfügung stehen.
-    if len(farben) < anzahl_farben and farben:
-        vielfaches = -(-anzahl_farben // len(farben))  # Aufrunden
+    if len(farben) < anzahl_farben and farben:          # bei Bedarf wird die Liste verlängert, sodass ausreichend Farben zur Verfügung stehen
+        vielfaches = -(-anzahl_farben // len(farben))  
         farben = (farben * vielfaches)[:anzahl_farben]
 
     return farben
 
 
-TAETIGKEITEN_FARBEN_BASIS = generiere_farben(len(Eingabe.taetigkeiten_liste))
+TAETIGKEITEN_FARBEN_BASIS = generiere_farben(len(Eingabe.taetigkeiten_liste))       # erzeugt eine Liste, die definiert, welche Farbe welcher Tätigkeit zugeordnet wird
 if TAETIGKEITEN_FARBEN_BASIS:
     TAETIGKEIT_FARBEN = {
         taetigkeit: TAETIGKEITEN_FARBEN_BASIS[idx % len(TAETIGKEITEN_FARBEN_BASIS)]
@@ -206,7 +188,7 @@ else:
     TAETIGKEIT_FARBEN = {}
 
 
-def _farbe_fuer_taetigkeit(
+def _farbe_fuer_taetigkeit(     # liefert die konkrete Farbe für eine Tätigkeit
     taetigkeit: str, fallback_farben: Optional[List[str]], index: int
 ) -> Optional[str]:
     """Gibt die konfigurierte Farbe für ``taetigkeit`` zurück."""
@@ -220,10 +202,9 @@ def _farbe_fuer_taetigkeit(
     return None
 
 
-# Festlegen des Zeitraums in Stunden
+# Festlegen des Zeitraums in Stunden (Schichtzeit)
 Betrachtungsintervall = 8  # Angabe im Stundenformat -> Bsp.: 30min -> Betrachtungsintervall = 0.5
-# Anzahl der anzegeigten Balken ACHTUNG: Abhängig von dem festgelegten Zeitraum
-ANZAHL_BALKEN = 6 # Wenn alle Balken angezeigt werden sollen: Wert 0 eingeben
+
 # Angabe zu Jobspezifischem Output:
 JOB_FILTER = 'alle' # Angabe entweder als Jobname: 'J1' oder 'alle'
 
@@ -231,7 +212,7 @@ JOB_FILTER = 'alle' # Angabe entweder als Jobname: 'J1' oder 'alle'
 # Sammelcontainer für die spätere Gesamtproduktivität über alle Mitarbeitenden
 gesamt_produktivitaet_rows = []
 
-# Grafiken für alle definierten Mitarbeitenden erzeugen
+# Grafiken für alle definierten Mitarbeitenden werden erzeugt
 for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
     if mitarbeiter_id not in Berechnung.output_data_all:
         raise KeyError(f"Keine Simulationsergebnisse für Mitarbeitenden '{mitarbeiter_id}' vorhanden.")
@@ -250,24 +231,14 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
         pd.DataFrame(columns=["Job", "Tätigkeit", "Runde", "Simulationszeit", "Bearbeitungszeit"]),
     )
 
-    # Aufbereiten der erforderlichen Daten:
+    ''' Aufbereiten der erforderlichen Daten '''
     # Zeitraum definieren
     zeitraum = 3600 * Betrachtungsintervall
-    # Anzahl der darzustellenden Balken pro Mitarbeitendem initialisieren
-    anzahl_balken = ANZAHL_BALKEN
+   
     # Neue Kategorie-Spalte basierend auf dem Zeitraum berechnen
     Zeiten_Jobs = Zeiten_Jobs[Zeiten_Jobs['Bearbeitungszeit'] != 0].copy()  # Filtern von allen Jobs, die außerhalb des Betrachtungsrahmens liegen
 
-    # Nachfolgender Befehl möglicherweise unnötig:
-    if not Zeiten_Jobs.empty:
-        Zeiten_Jobs['Zuordnung'] = (1 + Zeiten_Jobs['Aufsummierte Bearbeitungszeit'] // zeitraum).astype(int)  # Ergänzen einer Zuordnung auf Basis des gewünschten Zeitintervalles
-        if anzahl_balken == 0:
-            anzahl_balken = int(Zeiten_Jobs['Zuordnung'].max())
-    else:
-        Zeiten_Jobs['Zuordnung'] = pd.Series(dtype=int)
-        anzahl_balken = 0
-
-
+    
     # Grafische Aufbereitung der Ausführungszeiten auf Basis der Lern- und Vergessenseffekte
 
     # DataFrame erstellen
@@ -315,13 +286,9 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
         round_change_mask = job_history_df['Runde'].ne(job_history_df['Runde'].shift(-1))
         round_boundaries = job_history_df.loc[round_change_mask, ['DurchlaufNr', 'Runde']].to_dict('records')
 
-    #plot_AFZ_Tabelle = plot_AFZ_Tabelle[plot_AFZ_Tabelle['DurchlaufNr'] <= 89]
-
     # Grafik erstellen
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    #für flachere Grafiken
-    #fig, ax = plt.subplots(figsize=(10, 5))
 
     numeric_columns = plot_AFZ_Tabelle.reindex(columns=Eingabe.taetigkeiten_liste).apply(
         pd.to_numeric, errors='coerce'
@@ -409,7 +376,7 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
 
     plot_filename = f"Lern- und Vergessensverhalten_{mitarbeiter_id}.svg"
  
-    fig.savefig(plot_filename, dpi=300)  # Speichert die Grafik im PNG-Format mit einer Auflösung von 300 DPI
+    fig.savefig(plot_filename, dpi=300)  # Speichert die Grafik im SVG-Format mit einer Auflösung von 300 DPI
     plt.close(fig)
 
     # Einzelgrafiken für jede Tätigkeit des Mitarbeitenden erzeugen
@@ -499,13 +466,6 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
                     label="Ausführung",
                 )
 
-        # ax1.plot(
-        #     taetigkeits_df["DurchlaufNr"],
-        #     afz_post_values,
-        #     label="AFZ nach Ausführung",
-        #     color=farben[(index + 1) % len(farben)] if farben else None,
-        #     linestyle="--",
-        # )
 
         ax1.set_title(
             f"Lern- und Vergessensverhalten ({mitarbeiter_id} - {taetigkeit})"
@@ -551,15 +511,6 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
                 )
                 boundary_label_added = True
 
-        # ax2 = ax1.twinx()
-        # ax2.step(
-        #     taetigkeits_df["DurchlaufNr"],
-        #     vg_dauer,
-        #     label="Vergessensdauer",
-        #     color="#808080",
-        #     where="post",
-        # )
-        # ax2.set_ylabel("Vergessensdauer [s]")
 
         lines_1, labels_1 = ax1.get_legend_handles_labels()
         if lines_1:
@@ -798,6 +749,19 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
             ax.set_xticklabels(labels, rotation=45, ha='right')
             ax.grid(True, axis='y', linestyle='--', alpha=0.3)
 
+            max_werte: List[float] = []
+            if unterkanten_ohne.size:
+                max_werte.append(float(np.nanmax(unterkanten_ohne)))
+            if unterkanten_mit.size:
+                max_werte.append(float(np.nanmax(unterkanten_mit)))
+            if max_werte:
+                max_hoehe = max(max_werte)
+                if np.isfinite(max_hoehe):
+                    if max_hoehe <= 0:
+                        ax.set_ylim(0, 1)
+                    else:
+                        ax.set_ylim(0, max_hoehe * 1.05)
+
             job_handles = [
                 Patch(facecolor=job_farben[idx % len(job_farben)], label=job)
                 for idx, job in enumerate(job_order)
@@ -911,6 +875,19 @@ for mitarbeiter_id in ANZEIGE_MITARBEITENDE:
                 ax.set_xticks(x_positionen_tage)
                 ax.set_xticklabels([f"Tag {tag}" for tag in tage])
                 ax.grid(True, axis='y', linestyle='--', alpha=0.3)
+
+                max_werte_tag: List[float] = []
+                if unterkanten_tag_ohne.size:
+                    max_werte_tag.append(float(np.nanmax(unterkanten_tag_ohne)))
+                if unterkanten_tag_mit.size:
+                    max_werte_tag.append(float(np.nanmax(unterkanten_tag_mit)))
+                if max_werte_tag:
+                    max_hoehe_tag = max(max_werte_tag)
+                    if np.isfinite(max_hoehe_tag):
+                        if max_hoehe_tag <= 0:
+                            ax.set_ylim(0, 1)
+                        else:
+                            ax.set_ylim(0, max_hoehe_tag * 1.05)
 
                 runden_handles = [
                     Patch(facecolor=runden_farben[idx % len(runden_farben)], label=f"Runde {runde}")
@@ -1043,6 +1020,19 @@ if gesamt_produktivitaet_rows:
         ax.set_xticks(x_positionen_tage)
         ax.set_xticklabels([f"Tag {tag}" for tag in tage])
         ax.grid(True, axis='y', linestyle='--', alpha=0.3)
+
+        max_werte_gesamt: List[float] = []
+        if unterkanten_tag_ohne.size:
+            max_werte_gesamt.append(float(np.nanmax(unterkanten_tag_ohne)))
+        if unterkanten_tag_mit.size:
+            max_werte_gesamt.append(float(np.nanmax(unterkanten_tag_mit)))
+        if max_werte_gesamt:
+            max_hoehe_gesamt = max(max_werte_gesamt)
+            if np.isfinite(max_hoehe_gesamt):
+                if max_hoehe_gesamt <= 0:
+                    ax.set_ylim(0, 1)
+                else:
+                    ax.set_ylim(0, max_hoehe_gesamt * 1.05)
 
         runden_handles = [
             Patch(facecolor=runden_farben[idx % len(runden_farben)], label=f"Runde {runde}")

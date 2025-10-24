@@ -6,6 +6,8 @@ ANZEIGE_MITARBEITENDE = list(getattr(Berechnung, "simulierte_mitarbeitende", [])
 if not ANZEIGE_MITARBEITENDE:
     ANZEIGE_MITARBEITENDE = list(Eingabe.mitarbeitende)
 
+
+''' Vorbereitung der Job-Zusammenfassung und Aggregation vollständiger Durchläufe für die Job-Protokolle'''
 # Ermitteln der Bearbeitungszeiten auf Jobbasis
 # Neue Matrix für die Jobs und ihre aufsummierte Bearbeitungszeiten
 Jobbearbeitungszeit = {}
@@ -91,13 +93,11 @@ for ma in ANZEIGE_MITARBEITENDE:
 
     Jobbearbeitungszeit[ma] = job_df
 
-
+''' Detailtabelle für Tätigkeiten '''
 # Erstellen der Liste für die Ausführungszeiten der einzelnen Tätigkeiten
+Tätigkeitenbearbeitungszeit = {} # Initialisiert den DataFrame für die Jobs
 
-# Initialisiere den DataFrame für die Jobs
-Tätigkeitenbearbeitungszeit = {}
-
-# Berechne die Bearbeitungszeiten pro Produkt auf Basis der Tätigkeitenzuordnung
+# Ermittle die Bearbeitungszeiten pro Produkt auf Basis der Tätigkeitenzuordnung
 for ma in ANZEIGE_MITARBEITENDE:
     historie = Berechnung.job_history.get(ma, [])
     taetigkeiten_df = pd.DataFrame(
@@ -138,9 +138,7 @@ for ma in ANZEIGE_MITARBEITENDE:
 
     Tätigkeitenbearbeitungszeit[ma] = taetigkeiten_df
 
-
-#%%
-
+''' Excel-Export '''
 excel_datei = "Bearbeitungszeiten.xlsx"
 # Exportiere die DataFrames in eine Excel-Datei mit zwei Tabellenblättern pro Mitarbeitendem
 with pd.ExcelWriter(excel_datei) as writer:

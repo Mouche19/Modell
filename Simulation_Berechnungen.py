@@ -1,11 +1,11 @@
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set # die Typen werden für Annotationen in Funktionen und Dictionaries genutzt, um erwartete Datentypen festzuhalten
 
 import numpy as np
 import pandas as pd
 import Simulation_Eingabe as Eingabe
 
-from Simulation_Engine import (
-    PrintLogger,
+from Simulation_Engine import (             # Aus Simulation_Engine werden Logger, der Runner und das Simulationsergebnis importiert, 
+    PrintLogger,                            # um die Simulation auszuführen und auszuwerten.
     SimulationLogger,
     SimulationRunner,
     Simulationsergebnis,
@@ -14,11 +14,11 @@ from Simulation_Engine import (
 
 pd.options.display.float_format = "{:.3f}".format  # Zeigt 3 Nachkommastellen für alle Pandas-Ausgaben
 
-
+# Liste aktiver Mitarbeitender, Arbeitsrunden, Jobs, Personalrisiken und Produktionsstörungen werden aus Eingabe-Modul übernommen
 aktive_mitarbeitende = list(Eingabe.mitarbeitende)
 arbeitsrunden = Eingabe.arbeitsrunden
 if not arbeitsrunden:
-    raise ValueError("Es muss mindestens eine Arbeitsrunde definiert sein.")
+    raise ValueError("Es muss mindestens eine Arbeitsrunde definiert sein.") # Fehlermeldung, falls keine Runden definiert wurden
 
 alle_jobs = getattr(Eingabe, "jobs", None)
 if alle_jobs is None:
@@ -27,7 +27,7 @@ if alle_jobs is None:
 personalrisiken_vorgabe = getattr(Eingabe, "personalrisiken", None)
 produktionsstoerungen_vorgabe = getattr(Eingabe, "produktionsstoerungen", None)
 
-# Vorberechnung der Kompetenzgrenzen pro Mitarbeitendem und Tätigkeit
+# Vorberechnung der individuellen Grenzwerte pro Mitarbeitendem und Tätigkeit, Differenz zwischen Startwert und Grenzwert wird berechnet 
 kompetenz_parameter: Dict[str, Dict[str, Dict[str, float]]] = {}
 for ma in aktive_mitarbeitende:
     kompetenz_parameter[ma] = {}
@@ -43,13 +43,13 @@ for ma in aktive_mitarbeitende:
         }
 
 
-def berechne_kompetenzstufe(ma, taetigkeit, aktuelle_afz):
-    parameter = kompetenz_parameter[ma][taetigkeit]
+def berechne_kompetenzstufe(ma, taetigkeit, aktuelle_afz):  # abh. von zuvor bestimmter Differenz wird Kompetenzstufe ermittelt
+    parameter = kompetenz_parameter[ma][taetigkeit]         # je höher die Reduktion, desto höher die Stufe
     initial = parameter["initial"]
     differenz = parameter["differenz"]
 
     if differenz <= 0:
-        return 5 if aktuelle_afz <= initial else 1
+        return 5 if aktuelle_afz <= initial else 1 # Grenzfall ohne Differenz wird überprüft, nur 1 (über initialer Zeit) oder 5 (unter Grenzwert)
 
     reduktion = (initial - aktuelle_afz) / differenz
     reduktion = max(0, min(reduktion, 1))
@@ -65,8 +65,8 @@ def berechne_kompetenzstufe(ma, taetigkeit, aktuelle_afz):
     return 5
 
 
-def ermittle_fehlerquote(ma, taetigkeit, kompetenzstufe, reduktion_rel=None):
-    parameter = getattr(Eingabe, "fehlerquote_parameter", {})
+def ermittle_fehlerquote(ma, taetigkeit, kompetenzstufe, reduktion_rel=None):   # Fehlerquote wird zuerst abh. von individuellen Stufen eingeordnet
+    parameter = getattr(Eingabe, "fehlerquote_parameter", {})                   # Fehlerquote wird in Eingabe-Modul eingegeben
     standard = getattr(Eingabe, "standard_fehlerquote", {})
 
     stufenwerte = parameter.get(ma, {}).get(taetigkeit, {})
@@ -82,13 +82,13 @@ def ermittle_fehlerquote(ma, taetigkeit, kompetenzstufe, reduktion_rel=None):
         return max(0.0, min(standard[max(standard.keys())], 1.0))
 
     if reduktion_rel is not None:
-        return max(0.0, min(1.0, (1 - reduktion_rel)))
+        return max(0.0, min(1.0, (1 - reduktion_rel))) 
 
     return 0.0
 
 
-def ermittle_outputmenge(ma, taetigkeit):
-    konfig = getattr(Eingabe, "output_pro_ausfuehrung", {})
+def ermittle_outputmenge(ma, taetigkeit):                                       # nach jeder Ausführung einer Tätigkeit wird sie als "1" ausgegeben 
+    konfig = getattr(Eingabe, "output_pro_ausfuehrung", {})                     # dadurch wird die kumulierte Anzahl der Ausführungen für eine Tätigkeit ermittelt
 
     if isinstance(konfig, dict):
         if taetigkeit in konfig and not isinstance(konfig[taetigkeit], dict):
@@ -103,9 +103,9 @@ def ermittle_outputmenge(ma, taetigkeit):
     return 1
 
 
-def fuehre_simulation(
-    *,
-    fehlerfrei: bool = False,
+def fuehre_simulation(                                                          # Funktion, die die Simulation erzeugt
+    *,                                                                          # Damit lassen sich Simulationen mit identischer Konfiguration, 
+    fehlerfrei: bool = False,                                                   # aber unterschiedlichen Einstellungen (z. B. fehlerfrei oder mit Fehlern) starten
     logger: Optional[SimulationLogger] = None,
     event_handlers: Optional[Dict[str, Iterable[Callable[..., None]]]] = None,
     personalrisiken: Optional[Dict[str, Iterable[Dict[str, Any]]]] = None,
@@ -122,13 +122,13 @@ def fuehre_simulation(
         personalrisiken=personalrisiken,
         produktionsstoerungen=produktionsstoerungen,
     )
-    return runner.run(
+    return runner.run(                              
         fehlerfrei=fehlerfrei,
         ziel_tag_limit=ziel_tag_limit,
         ignoriere_ziele=ignoriere_ziele,
     )
 
-simulation_mit_fehler = fuehre_simulation(
+simulation_mit_fehler = fuehre_simulation(          # fehlerbehaftete Simulation
     fehlerfrei=False,
     personalrisiken=personalrisiken_vorgabe,
     produktionsstoerungen=produktionsstoerungen_vorgabe,
@@ -142,14 +142,14 @@ ziel_tag_limit = (
 )
 ignoriere_ziele_fehlerfrei = bool(ziel_tag_limit and simulation_mit_fehler.ziel_status)
 
-simulation_ohne_fehler = fuehre_simulation(
+simulation_ohne_fehler = fuehre_simulation(          # fehlerfreie Simulation zum Vergleich
     fehlerfrei=True,
     personalrisiken=personalrisiken_vorgabe,
     produktionsstoerungen=produktionsstoerungen_vorgabe,
     ziel_tag_limit=ziel_tag_limit,
     ignoriere_ziele=ignoriere_ziele_fehlerfrei,
 )
-
+''' Extraktion zentraler Ergebnisse aus beiden Simulationsergebnissen ''' # alle Daten werden in den Output-Dateien protokolliert
 output_data_all = simulation_mit_fehler.output_data_all
 job_history = simulation_mit_fehler.job_history
 kompetenz_protokoll = simulation_mit_fehler.kompetenz_protokoll
@@ -165,8 +165,8 @@ simulierte_mitarbeitende = sorted(alle_labels)
 if not simulierte_mitarbeitende:
     simulierte_mitarbeitende = list(aktive_mitarbeitende)
 
-# Ergänze die job_history um die Ergebnisse der fehlerfreien Simulation
-for ma, historie in job_history.items():
+
+for ma, historie in job_history.items(): # Tabelle mit Werten der fehlerfreien Simulation wird zur Berechnung von verschiedenen Werten (z.B. Ausschussrate) erzeugt
     fehlerfrei_map = {
         eintrag.get("DurchlaufNr"): eintrag
         for eintrag in job_history_ohne_fehler.get(ma, [])
@@ -180,7 +180,7 @@ for ma, historie in job_history.items():
         eintrag["Ausschuss_ohne_Fehler"] = ff.get("Ausschuss", 0.0)
 
 
-# Füge die fehlerfreie Simulation als zusätzliche Spalten in den Tätigkeits-DataFrames hinzu
+# fehlerfreie Simulation wird als zusätzliche Spalten in den Tätigkeits-DataFrames hinzugefügt
 for ma in simulierte_mitarbeitende:
     for taetigkeit in Eingabe.taetigkeiten_liste:
         df_real = output_data_all.get(ma, {}).get(taetigkeit)
@@ -232,13 +232,13 @@ for ma in simulierte_mitarbeitende:
         output_data_all[ma][taetigkeit] = df_real
 
 
-''' Ergebnis für alle Tätigkeiten anzeigen '''
+''' Ergebnis für alle Tätigkeiten anzeigen (Konsolen-Ausgabe) '''
 for ma, daten in output_data_all.items():
     for t, df in daten.items():
         print(f"Ergebnisse für Mitarbeiter {ma} - Tätigkeit {t}:\n{df}\n")
 
 
-''' Kombinieren aller AFZ aus den Datenframes in eine Tabelle je Mitarbeitendem '''
+''' Kombinieren aller Ausführungszeiten aus den Datenframes in eine Tabelle je Mitarbeitendem '''
 output_data_compressed = {}
 for ma in simulierte_mitarbeitende:
     compressed_df: Optional[pd.DataFrame] = None
@@ -362,7 +362,7 @@ else:
     )
 
 
-# Gesamtausschuss über alle Mitarbeitenden und Tätigkeiten hinweg ausgeben
+# Gesamtausschuss über alle Mitarbeitenden und Tätigkeiten hinweg berechnen und ausgeben
 has_output_data = isinstance(output_data_flat, pd.DataFrame) and not output_data_flat.empty
 if has_output_data:
     gesamt_ausschuss = output_data_flat["Ausschuss"].sum()
@@ -377,8 +377,8 @@ if has_output_data:
         f"{ausschuss_quote:.2f}% Ausschuss"
     )
 
-letzter_arbeitstag: Optional[int] = None
-feierabend_tage: List[int] = []
+letzter_arbeitstag: Optional[int] = None                # für Terminal-Ausgabe: “Feierabend”-Ereignisse werden gefiltert, letzter Tag wird extrahiert und  
+feierabend_tage: List[int] = []                         # für diesen Tag die Fehlerquoten sowie Kompetenzstufen gesammelt
 for protokolle in kompetenz_protokoll.values():
     for eintrag in protokolle:
         if eintrag.get("Ereignis") != "Feierabend":
@@ -424,7 +424,7 @@ if letzter_arbeitstag is not None:
                 except (TypeError, ValueError):
                     pass
 
-if letzter_arbeitstag is not None:
+if letzter_arbeitstag is not None:          # Konsolenausgaben zum letzten Tag
     if produkt_last_day is not None:
         print(
             f"Produktivität am letzten Tag (Tag {letzter_arbeitstag}): "
@@ -464,7 +464,7 @@ else:
     print("Es konnten keine Kennzahlen für den letzten Arbeitstag ermittelt werden.")
 
 
-# Kompetenzdaten aufbereiten
+# Kompetenzdaten aufbereiten für Protokolle
 kompetenz_dfs = {}
 gesamt_kompetenz_rows = []
 for ma, protokolle in kompetenz_protokoll.items():
@@ -532,7 +532,7 @@ if isinstance(uebungsfaktor_protokoll, dict):
     if uebungsfaktor_dfs:
         uebungsfaktor_flat = pd.concat(uebungsfaktor_dfs.values(), ignore_index=True)
 
-''' Schreiben in Excel '''
+''' Exports in CSV und Excel '''
 with pd.ExcelWriter("output_data_all.xlsx", engine='xlsxwriter') as writer:
     for ma, df in output_data_compressed.items():
         df.to_excel(writer, sheet_name=f"{ma}_AFZ", index=False)
@@ -594,17 +594,18 @@ if not kompetenz_flat.empty:
 if not uebungsfaktor_flat.empty:
     uebungsfaktor_flat.to_csv("uebungsfaktor_protokoll.csv", index=False)
 
-""" Flexibilitäts- und Kompetenzanalyse """
+""" Flexibilitäts- und Kompetenzanalyse für Kompetentmatrix """
 flex_excel_datei = "Flexibilitaet_Kompetenz_Auswertung.xlsx"
 
-kompetenz_feierabend = kompetenz_flat[
+kompetenz_feierabend = kompetenz_flat[          # Analyse filtert Feierabend-Ereignisse, erstellt für jeden Tag Kompetenzmatrizen
     kompetenz_flat.get("Ereignis") == "Feierabend"
 ].copy()
 
-tages_matrizen: List[Dict[str, Any]] = []
+tages_matrizen: List[Dict[str, Any]] = []       # pro Tag werden individuelle und kollektive Matrix-Sheets erstellt (und weiter unten gefüllt)
 individuelle_gesamt_rows: List[pd.DataFrame] = []
 kollektive_gesamt_rows: List[pd.DataFrame] = []
 
+''' Berechnung der Werte für Flexibilität und Kompetenz '''
 if not kompetenz_feierabend.empty:
     for tag, df_tag in kompetenz_feierabend.groupby("Tag"):
         matrix = (
@@ -653,7 +654,7 @@ if not kompetenz_feierabend.empty:
             }
         )
 
-with pd.ExcelWriter(flex_excel_datei, engine="xlsxwriter") as writer:
+with pd.ExcelWriter(flex_excel_datei, engine="xlsxwriter") as writer: # Werte werden in die Tabellen eingetragen
     if tages_matrizen:
         for eintrag in tages_matrizen:
             tag = eintrag["Tag"]

@@ -1,4 +1,4 @@
-"""Simulation engine with pluggable logging and event hooks."""
+"""Simulations-Engine mit Protokollierungs- und Ereignisfunktionen."""
 
 from __future__ import annotations
 
@@ -14,23 +14,23 @@ from Simulation_Vergessenskurve import Vergessenskurve
 
 
 class SimulationLogger(Protocol):
-    """Minimal logging protocol used by the simulation engine."""
+    """ Von der Simulations-Engine verwendetes Protokoll mit minimaler Protokollierung """
 
     def info(self, message: str) -> None:
-        """Log an informational message."""
+        """ Informationsmeldung protokollieren """
 
 
 class PrintLogger:
-    """Fallback logger that proxies messages to :func:`print`."""
+    """ Rückfall-Logger, der Nachrichten an :func:`print` weiterleitet """
 
-    def info(self, message: str) -> None:  # pragma: no cover - trivial wrapper
+    def info(self, message: str) -> None:  
         print(message)
 
 
 def berechne_outputsumme_fuer_tag(
     job_history: Dict[str, Iterable[Dict[str, Any]]], tag: int
 ) -> Optional[float]:
-    """Summiere den *Output_gut* aller Tätigkeiten für einen Arbeitstag."""
+    """ Summiere den *Output_gut* aller Tätigkeiten für einen Arbeitstag """
 
     gesamt = 0.0
     werte_gefunden = False
@@ -57,7 +57,7 @@ def berechne_outputsumme_fuer_tag(
 
 @dataclass
 class Simulationsergebnis:
-    """Container for the raw simulation results."""
+    """ Container für die rohen Simulationsergebnisse """
 
     output_data_all: Dict[str, Dict[str, pd.DataFrame]]
     job_history: Dict[str, List[Dict[str, Any]]]
@@ -76,7 +76,7 @@ AfterDayHandler = Callable[["SimulationRunner", int], None]
 
 @dataclass
 class MitarbeiterProfil:
-    """Aggregated parameter set for an aktiven Mitarbeitenden."""
+    """ Aggregierter Parametersatz für den aktiven Mitarbeitenden """
 
     name: str
     t_initiale_AFZ: Dict[str, float]
@@ -90,7 +90,7 @@ class MitarbeiterProfil:
 
 @dataclass
 class MitarbeiterStateSnapshot:
-    """Persisted Kompetenz- und Lernzustände für eine Person."""
+    """ Speichern der Kompetenz- und Lernzustände für eine Person, falls sie ausfällt """
 
     AFA_pre: Dict[str, float]
     AFA_post: Dict[str, float]
@@ -110,7 +110,7 @@ class MitarbeiterStateSnapshot:
 
 @dataclass(order=True)
 class Personalereignis:
-    """Planbarer Personalvorfall (Fluktuation oder Ausfall)."""
+    """Planbarer Personalvorfall (Fluktuation oder Ausfall)"""
 
     start_tag: int
     typ: str = field(compare=False)
@@ -120,7 +120,7 @@ class Personalereignis:
 
 @dataclass
 class PersonalStatus:
-    """Verwaltet die Personalplanung für eine Rolle."""
+    """ Verwaltet die Personalplanung für eine Rolle """
 
     original: str
     ereignisse: List[Personalereignis] = field(default_factory=list)
@@ -137,7 +137,7 @@ class PersonalStatus:
 
 @dataclass
 class StoerungsEreignis:
-    """Geplante Produktionsunterbrechung für Jobs und Runden."""
+    """ Geplante Produktionsunterbrechung für Jobs und Runden """
 
     start_tag: int
     end_tag: int
@@ -145,16 +145,16 @@ class StoerungsEreignis:
     jobs: Optional[Set[str]]
     beschreibung: Optional[str] = None
 
-
+''' Aufbau der Grundkonfiguration '''
 class SimulationRunner:
-    """Execute the competency and throughput simulation."""
+    """ Klasse für Ausführung der Kompetenz- und Durchsatzsimulation, enthält alle notwendigen Funktionen """
 
     FEHLERARM_FEHLERQUOTE = 0.02
     FEHLERARM_MIN_REDUKTION = 0.85
 
-    def __init__(
+    def __init__( # Initialisierung der Simulation
         self,
-        eingabe_module: Any,
+        eingabe_module: Any,        # Daten aus Eingabe-Modul lesen und verarbeiten
         *,
         logger: Optional[SimulationLogger] = None,
         event_handlers: Optional[Dict[str, Iterable[Callable[..., None]]]] = None,
@@ -164,7 +164,7 @@ class SimulationRunner:
         self.eingabe = eingabe_module
         self.logger = logger or PrintLogger()
         self.aktive_mitarbeitende = list(getattr(self.eingabe, "mitarbeitende", []))
-        if not self.aktive_mitarbeitende:
+        if not self.aktive_mitarbeitende:                                               # zunächst wird Eingabekonsistenz geprüft
             raise ValueError("Es müssen aktive Mitarbeitende definiert sein.")
         self.arbeitsrunden = list(getattr(self.eingabe, "arbeitsrunden", []))
         if not self.arbeitsrunden:
@@ -235,8 +235,8 @@ class SimulationRunner:
             if self.lernkurven[ma] is None or self.vergessenskurven[ma] is None:
                 raise ValueError(f"Für Mitarbeiter {ma} fehlen Lern- oder Vergessenskurven.")
 
-        komplexitaet_roh = getattr(self.eingabe, "taetigkeit_komplexitaet", {})
-        self.taetigkeit_komplexitaet: Dict[str, float] = {}
+        komplexitaet_roh = getattr(self.eingabe, "taetigkeit_komplexitaet", {})         # ab hier werden Komplexitätswerte, der Normwert für die Ausfühurungsanzahl  
+        self.taetigkeit_komplexitaet: Dict[str, float] = {}                             # und Übungsfaktor-Parameter aus der Eingabe gelesen und ggf. auf sinnvolle Grenzen gekappt
         for taetigkeit in self.taetigkeiten:
             try:
                 wert = float(komplexitaet_roh.get(taetigkeit, 3.0))
@@ -390,7 +390,7 @@ class SimulationRunner:
             ereignisliste.sort()
             self._personalstatus[ma] = PersonalStatus(original=ma, ereignisse=ereignisliste)
 
-        if produktionsstoerungen is None:
+        if produktionsstoerungen is None:      
             produktionsstoerungen = getattr(self.eingabe, "produktionsstoerungen", None)
         self._stoerungsplan: Dict[int, List[StoerungsEreignis]] = {}
         self._initialisiere_stoerungsplan(produktionsstoerungen)
@@ -446,8 +446,8 @@ class SimulationRunner:
 
         self._initialisiere_zustaende()
 
-    def _initialisiere_stoerungsplan(
-        self, stoerungen: Optional[Iterable[Dict[str, Any]]]
+    def _initialisiere_stoerungsplan(           # überträgt Produktionsstörungen in einen kalenderbasierten Plan und speichert Ereignisse pro Tag
+        self, stoerungen: Optional[Iterable[Dict[str, Any]]] 
     ) -> None:
         if not stoerungen:
             return
@@ -507,7 +507,7 @@ class SimulationRunner:
             for tag in range(stoerung.start_tag, stoerung.end_tag + 1):
                 self._stoerungsplan.setdefault(tag, []).append(stoerung)
 
-    def _initialisiere_jobprofil_aenderungen(self) -> None:
+    def _initialisiere_jobprofil_aenderungen(self) -> None:     # liest geplante Jobprofiländerungen und 
         self._jobprofil_aenderungen: List[Dict[str, Any]] = []
         roh = getattr(self.eingabe, "jobprofil_aenderungen", None)
         if not roh:
@@ -538,7 +538,7 @@ class SimulationRunner:
                 or eintrag.get("profile")
                 or eintrag.get("zuordnungen")
             )
-            if not isinstance(jobs_roh, dict):
+            if not isinstance(jobs_roh, dict):      
                 continue
             jobs_map: Dict[str, List[str]] = {}
             for job, tasks in jobs_roh.items():
@@ -557,9 +557,9 @@ class SimulationRunner:
                     if wert is None:
                         continue
                     taetigkeit = str(wert)
-                    if taetigkeit not in self.taetigkeiten:
+                    if taetigkeit not in self.taetigkeiten: # für den Fall einer fehlerhaften Jobzuordnung
                         self.logger.info(
-                            f"Jobprofil-Änderung Tag {start_tag}: Tätigkeit {taetigkeit} ist nicht in der Tätigkeitenliste enthalten und wird ignoriert."
+                            f"Jobprofil-Änderung Tag {start_tag}: Tätigkeit {taetigkeit} ist nicht in der Tätigkeitenliste enthalten und wird ignoriert." 
                         )
                         continue
                     neue_tasks.append(taetigkeit)
@@ -592,8 +592,8 @@ class SimulationRunner:
 
         self._jobprofil_aenderungen.sort(key=lambda eintrag: eintrag["start_tag"])
 
-    def _parse_simulationsziele(self, konfig: Any) -> Dict[str, Optional[float]]:
-        result: Dict[str, Optional[float]] = {
+    def _parse_simulationsziele(self, konfig: Any) -> Dict[str, Optional[float]]:   # aus Eingabe-Modul werden Zielkonfiguration extrahiert
+        result: Dict[str, Optional[float]] = {                                      # gilt nur, falls Schwellenwerte für Fehlerquote, Produktivität und Kompetenzen gesetzt sind
             "fehlerquote": None,
             "produktivitaet": None,
             "kompetenz_durchschnitt": None,
@@ -603,7 +603,7 @@ class SimulationRunner:
         if not konfig or not isinstance(konfig, dict):
             return result
 
-        def parse_float(value: Any) -> Optional[float]:
+        def parse_float(value: Any) -> Optional[float]: # heterogene Eingaben der Zieldefinitionen werden in Gleitkommazahlen überführt
             try:
                 if value is None:
                     return None
@@ -711,10 +711,10 @@ class SimulationRunner:
 
         return result
 
-    def _hole_job_tasks(self, job: str) -> List[str]:
+    def _hole_job_tasks(self, job: str) -> List[str]: # gibt die aktuelle Liste der Tätigkeiten zurück, die einem Job zugeordnet sind
         return list(self.jobs_zuordnung.get(job, []))
 
-    def _pruefe_jobprofil_aenderungen(self, tag: int) -> None:
+    def _pruefe_jobprofil_aenderungen(self, tag: int) -> None: # prüft am Tagesbeginn, ob ab diesem Tag Jobprofiländerungen gelten
         if tag <= 0:
             return
         for eintrag in self._jobprofil_aenderungen:
@@ -724,7 +724,7 @@ class SimulationRunner:
                 self._wende_jobprofil_aenderung_an(tag, eintrag)
                 eintrag["_applied"] = True
 
-    def _wende_jobprofil_aenderung_an(
+    def _wende_jobprofil_aenderung_an( # setzt neue Tätigkeitslisten für betroffene Jobs
         self, tag: int, eintrag: Dict[str, Any]
     ) -> None:
         beschreibung = eintrag.get("beschreibung")
@@ -750,7 +750,7 @@ class SimulationRunner:
                 tag, job, alte_tasks, list(neue_tasks), beschreibung
             )
 
-    def _protokolliere_jobprofilwechsel(
+    def _protokolliere_jobprofilwechsel( # erzeugt einen Ereigniseintrag „Jobprofil“ für die Ausgabe im Terminal mit detailliertem Text zur Änderung
         self,
         tag: int,
         job: str,
@@ -777,11 +777,11 @@ class SimulationRunner:
             )
 
     
-    def _normalisiere_runden(self, runden_roh: Any) -> Optional[Set[int]]:
+    def _normalisiere_runden(self, runden_roh: Any) -> Optional[Set[int]]: # organisiert Runden, die von Störungen betroffen sind
         if runden_roh is None:
             return None
         if isinstance(runden_roh, str):
-            if runden_roh.strip().lower() in {"alle", "all", "*"}:
+            if runden_roh.strip().lower() in {"alle", "all", "*"}: # akzeptierte Schreibweisen für "alle Runden", bei Produktionsstörungen
                 return None
             werte: Iterable[Any] = [runden_roh]
         elif isinstance(runden_roh, (int, float)):
@@ -815,7 +815,7 @@ class SimulationRunner:
                 result.add(index)
         return result or None
 
-    def _normalisiere_jobs(self, jobs_roh: Any) -> Optional[Set[str]]:
+    def _normalisiere_jobs(self, jobs_roh: Any) -> Optional[Set[str]]: # organisiert Jobs, die von Störungen betroffen sind
         if jobs_roh is None:
             return None
         if isinstance(jobs_roh, str):
@@ -847,8 +847,8 @@ class SimulationRunner:
                 result.add(job_lookup[job_normalisiert])
         return result or None
 
-    def _initialisiere_zustaende(self) -> None:
-        spalten = [
+    def _initialisiere_zustaende(self) -> None:     # Setzt sämtliche Simulationstabellen und -zählwerte auf ihre Startwerte
+        spalten = [                                 # registriert alle Mitarbeitenden/Slots und startet für jede Person den ersten Arbeitstag            
             "DurchlaufNr",
             "AFZ",
             "AFA_pre",
@@ -948,15 +948,15 @@ class SimulationRunner:
         for ma in self.aktive_mitarbeitende:
             self._beginne_neuen_tag(ma)
 
-    def before_round(self, tag: int, runde_index: int, runde: Dict[str, Any]) -> None:
+    def before_round(self, tag: int, runde_index: int, runde: Dict[str, Any]) -> None: # ruft Ereignisse vor der Runde auf
         for handler in self._before_round_handlers:
             handler(self, tag, runde)
 
-    def after_day(self, tag: int) -> None:
+    def after_day(self, tag: int) -> None: # ruft Ereignisse nach dem Tag auf
         for handler in self._after_day_handlers:
             handler(self, tag)
 
-    def _registriere_person(self, label: str) -> None:
+    def _registriere_person(self, label: str) -> None: # legt zu Beginn für eine Person alle Output-DataFrames, Job-Historie und Kompetenzprotokoll an
         if label not in self.uebungsfaktor_protokoll:
             self.uebungsfaktor_protokoll[label] = []
         if label in self.output_data_all:
@@ -968,10 +968,10 @@ class SimulationRunner:
         self.kompetenz_protokoll[label] = []
         self.durchlauf_index_person[label] = 0
 
-    def _aktuelles_label(self, ma: str) -> str:
+    def _aktuelles_label(self, ma: str) -> str: # Liefert das aktuell auf den Slot gemappte Label (Unterscheidung zwischen Original oder Ersatzkraft)
         return self.slot_label.get(ma, ma)
 
-    def _erstelle_profil(
+    def _erstelle_profil( # erzeugt ein Mitarbeiterprofil
         self,
         name: str,
         t_initiale: Dict[str, float],
@@ -993,8 +993,8 @@ class SimulationRunner:
             vergessenskurve=vergessenskurve,
         )
 
-    def _set_aktives_profil(self, ma: str, profil: MitarbeiterProfil) -> None:
-        self.t_initiale_AFZ_map[ma] = dict(profil.t_initiale_AFZ)
+    def _set_aktives_profil(self, ma: str, profil: MitarbeiterProfil) -> None:  # Aktualisiert alle Parameter und Kurvenreferenzen für eine Person und 
+        self.t_initiale_AFZ_map[ma] = dict(profil.t_initiale_AFZ)               # berechnet die Kompetenzparameter (Initialwert, Grenzwert, Differenz) je Tätigkeit   
         self.vor_AFA_map[ma] = dict(profil.vor_AFA)
         self.gw_map[ma] = dict(profil.gw)
         self.lf_map[ma] = dict(profil.lf)
@@ -1013,10 +1013,10 @@ class SimulationRunner:
                 "differenz": differenz,
             }
 
-    def _klone_profil(self, vorlage: MitarbeiterProfil, name: str) -> MitarbeiterProfil:
-        t_initiale = dict(vorlage.t_initiale_AFZ)
-        vor_afa = dict(vorlage.vor_AFA)
-        gw = dict(vorlage.gw)
+    def _klone_profil(self, vorlage: MitarbeiterProfil, name: str) -> MitarbeiterProfil:    # kommt zum Einsatz, sobald eine Ersatzkraft aktiviert werden muss;
+        t_initiale = dict(vorlage.t_initiale_AFZ)                                           # lässt sich beliebig oft eine standardisierte Ersatzperson erzeugen, 
+        vor_afa = dict(vorlage.vor_AFA)                                                     # während die Stammkraft über einen Snapshot eingefroren bleib;   
+        gw = dict(vorlage.gw)                                                               # bei Rückkehr der Stammkraft werden die gespeicherten Originalwerte wiederhergestellt
         lf = dict(vorlage.lf)
         vf = dict(vorlage.vf)
         lernkurve = Lernkurve(
@@ -1043,7 +1043,7 @@ class SimulationRunner:
             vergessenskurve=vergessenskurve,
         )
 
-    def _berechne_standardprofilvorlage(self) -> MitarbeiterProfil:
+    def _berechne_standardprofilvorlage(self) -> MitarbeiterProfil: # erzeugt ein Standard-Ersatzprofil inkl. Kurvenobjekten
         if not self.aktive_mitarbeitende:
             raise ValueError("Es kann kein Ersatzprofil ohne Mitarbeitende erstellt werden.")
         referenz = self.aktive_mitarbeitende[0]
@@ -1151,13 +1151,13 @@ class SimulationRunner:
             vergessenskurve=vergessenskurve,
         )
 
-    def _add_simulationszeit(self, ma: str, delta: float) -> None:
-        if delta <= 0:
+    def _add_simulationszeit(self, ma: str, delta: float) -> None:  # Addiert positive Zeitsprünge auf die individuelle Simulationszeit
+        if delta <= 0:                                              # und registriert sie ggf. als Abwesenheit (für personalbezogene Risiken)
             return
         self.simulationszeit[ma] += delta
         self._registriere_abwesenheitszeit(ma, delta)
 
-    def _registriere_abwesenheitszeit(self, ma: str, delta: float) -> None:
+    def _registriere_abwesenheitszeit(self, ma: str, delta: float) -> None: # Vermerkt zusätzliche Abwesenheitssekunden für aktive Ersatzereignisse (Ausfall/Fluktuation)
         if delta <= 0:
             return
         status = self._personalstatus.get(ma)
@@ -1166,7 +1166,7 @@ class SimulationRunner:
         if status.aktives_ereignis and status.aktives_ereignis.typ in {"ausfall", "fluktuation"}:
             status.abwesenheit_sekunden += delta
 
-    def _registriere_m_unterbrechung(self, ma: str, dauer: float) -> None:
+    def _registriere_m_unterbrechung(self, ma: str, dauer: float) -> None: # Konvertiert Abwesenheitsdauer in Stunden und akkumuliert sie zur späteren Übungsfaktor-Anpassung
         if dauer <= 0:
             return
         stunden = dauer / 3600.0
@@ -1174,8 +1174,8 @@ class SimulationRunner:
             return
         self.m_break_stunden[ma] = self.m_break_stunden.get(ma, 0.0) + stunden
 
-    def _erzeuge_snapshot(self, ma: str) -> MitarbeiterStateSnapshot:
-        return MitarbeiterStateSnapshot(
+    def _erzeuge_snapshot(self, ma: str) -> MitarbeiterStateSnapshot:   # Sichert sämtliche Kompetenz-/Übungszustände einer Person in einem MitarbeiterStateSnapshot, 
+        return MitarbeiterStateSnapshot(                                # um sie später wiederherstellen zu können
             AFA_pre=deepcopy(self.AFA_pre[ma]),
             AFA_post=deepcopy(self.AFA_post[ma]),
             AFZ=deepcopy(self.AFZ[ma]),
@@ -1192,7 +1192,7 @@ class SimulationRunner:
             m_gesamt_wiederholungen=deepcopy(self.m_gesamt_wiederholungen[ma]),
         )
 
-    def _setze_ersatz_startzustand(self, ma: str) -> None:
+    def _setze_ersatz_startzustand(self, ma: str) -> None:  # initialisiert die Ersatzkräfte
         profil = self.profil_aktuell[ma]
         self.AFA_pre[ma] = {t: profil.vor_AFA.get(t, 0.0) for t in self.taetigkeiten}
         self.AFA_post[ma] = {t: profil.vor_AFA.get(t, 0.0) for t in self.taetigkeiten}
@@ -1211,7 +1211,7 @@ class SimulationRunner:
         for taetigkeit in self.taetigkeiten:
             self.lernkurven[ma].set_m_faktor(taetigkeit, self.m_min)
 
-    def _protokolliere_personalereignis(self, label: str, tag: int, text: str) -> None:
+    def _protokolliere_personalereignis(self, label: str, tag: int, text: str) -> None:     # protokolliert Personalbewegungen, z.B. Aktivieren einer Ersatzkraft oder Rückkehr
         self.kompetenz_protokoll[label].append(
             {
                 "Tag": tag,
@@ -1224,8 +1224,8 @@ class SimulationRunner:
             }
         )
 
-    def _aktiviere_ersatzkraft(self, ma: str, ereignis: Personalereignis, tag: int) -> None:
-        status = self._personalstatus[ma]
+    def _aktiviere_ersatzkraft(self, ma: str, ereignis: Personalereignis, tag: int) -> None:    # sichert den aktuellen Zustand der ausfallenden Arbeitskraft, 
+        status = self._personalstatus[ma]                                                       # erzeugt ein Ersatzprofil und protokolliert den Einsatz  
         if status.ersatz_aktiv:
             return
         status.original_snapshot = self._erzeuge_snapshot(ma)
@@ -1263,8 +1263,8 @@ class SimulationRunner:
             f"Einsatz beginnt für {status.original} ({ereignis.typ})",
         )
 
-    def _deaktiviere_ersatzkraft(self, ma: str, tag: int) -> None:
-        status = self._personalstatus[ma]
+    def _deaktiviere_ersatzkraft(self, ma: str, tag: int) -> None:      # beim Ende eines Ersatz-Einsatzes wird gespeicherte Originalzustand wieder hergestellt   
+        status = self._personalstatus[ma]                               # Rückkehr wird protokolliert und Folgen der Abwesenheit verarbeitet
         if not status.ersatz_aktiv:
             return
         snapshot = status.original_snapshot
@@ -1314,7 +1314,7 @@ class SimulationRunner:
         if delta > 0 and index is not None:
             self._verarbeite_abwesenheit(ma, delta, index, m_relevant=True)
 
-    def _aktualisiere_personalstatus_nach_tag(self, ma: str) -> None:
+    def _aktualisiere_personalstatus_nach_tag(self, ma: str) -> None: # zählt verbleibende Ausfalltage herunter und merkt den geplanten Rückkehrtag
         status = self._personalstatus.get(ma)
         if not status or not status.ersatz_aktiv or not status.aktives_ereignis:
             return
@@ -1323,8 +1323,8 @@ class SimulationRunner:
             if status.verbleibende_ausfalltage <= 0:
                 status.rueckkehr_tag = self.arbeitstag_zaehler[ma] + 1
 
-    def _pruefe_personalereignisse(self, ma: str, tag: int) -> None:
-        status = self._personalstatus.get(ma)
+    def _pruefe_personalereignisse(self, ma: str, tag: int) -> None:    # verhindert Mehrfachprüfung pro Tag, beendet abgelaufene Ausfälle und
+        status = self._personalstatus.get(ma)                           # aktiviert neue Personalereignisse (Ausfall/Fluktuation) in chronologischer Reihenfolge    
         if not status:
             return
         if status.letzter_gepruefter_tag == tag:
@@ -1372,8 +1372,8 @@ class SimulationRunner:
                 status.rueckkehr_tag = None
             break
 
-    def _ermittle_stoerung(
-        self, tag: int, runden_index: int, job: str
+    def _ermittle_stoerung(                                         # sucht im Störungsplan nach einem Ereignis, das Tag, Runde und Job betrifft
+        self, tag: int, runden_index: int, job: str                 # liefert das passende Objekt bzw. Ereignis
     ) -> Optional[StoerungsEreignis]:
         ereignisse = self._stoerungsplan.get(tag, [])
         for stoerung in ereignisse:
@@ -1384,8 +1384,8 @@ class SimulationRunner:
             return stoerung
         return None
 
-    def _bearbeite_stoerung(
-        self,
+    def _bearbeite_stoerung(                                        # verarbeitet Störungen, veranlasst Änderungen wegen Vergessens und Übungsfaktor-Updates,
+        self,                                                       # aktualisiert Restzeiten und protokolliert die Störung
         ma: str,
         tag: int,
         runden_index: int,
@@ -1417,8 +1417,8 @@ class SimulationRunner:
         self.runde_restzeit[ma] = max(0.0, self.runde_restzeit.get(ma, 0.0) - downtime)
         self._protokolliere_stoerung(label, tag, runden_index, job, stoerung, downtime)
 
-    def _bearbeite_job_ohne_taetigkeiten(
-        self,
+    def _bearbeite_job_ohne_taetigkeiten(                       # für den Fall, dass ein Job keine Tätigkeiten mehr hat, aber zugeschrieben wurde, z.B. J3 = []           
+        self,                                                   # gesamte restliche Rundenzeit wird als Leerlauf behandelt (also als Pause)   
         ma: str,
         tag: int,
         runden_index: int,
@@ -1447,7 +1447,7 @@ class SimulationRunner:
         self.job_task_index[ma][job] = 0
 
 
-    def _protokolliere_stoerung(
+    def _protokolliere_stoerung( # schreibt den Störungseintrag ins Kompetenzprotokoll
         self,
         label: str,
         tag: int,
@@ -1475,17 +1475,30 @@ class SimulationRunner:
             }
         )
 
-    def _lernen(self, ma: str, taetigkeit: str, wdh: float) -> float:
+    def _lernen(self, ma: str, taetigkeit: str, wdh: float) -> float: # Berechnung der aktuellen Ausführungszeit (AFZ) anhand der Wiederholungszahl
         return self.lernkurven[ma].berechne_ausfuehrungszeit(taetigkeit, wdh)
 
-    def _berechne_AFA(self, ma: str, taetigkeit: str, afz_post: float) -> float:
+    def _berechne_AFA(self, ma: str, taetigkeit: str, afz_post: float) -> float: # aus einer Ausführungszeit die bisherige Wiederholungsanzahl bestimmen
         return self.lernkurven[ma].berechne_ausfuehrungsanzahl(taetigkeit, afz_post)
 
-    def _vergessen(self, ma: str, taetigkeit: str, dauer: float, tpost: float, zi: float) -> float:
-        return self.vergessenskurven[ma].berechne_AFZ_nach_Vergessen(taetigkeit, dauer, tpost, zi)
+    # def _vergessen(self, ma: str, taetigkeit: str, dauer: float, tpost: float, zi: float) -> float: 
+    #     return self.vergessenskurven[ma].berechne_AFZ_nach_Vergessen(taetigkeit, dauer, tpost, zi)
 
-    def _aktualisiere_uebungsfaktor_aufbau(
-        self, ma: str, tag: int, label: str
+    def _vergessen(self, ma: str, taetigkeit: str, dauer: float, tpost: float, zi: float) -> float: # Berechnung der AFZ nach einer Pause mit Übungsfaktor
+        m_aufbau = self.m_aufbau_tag.get(ma, {}).get(taetigkeit)
+        if m_aufbau is None:
+            m_aufbau = self.m_min
+        return self.vergessenskurven[ma].berechne_AFZ_nach_Vergessen(
+            taetigkeit,
+            dauer,
+            tpost,
+            zi,
+            m_aufbau,
+        )
+
+
+    def _aktualisiere_uebungsfaktor_aufbau(                     # Berechnet für jede Tätigkeit einen Übungsfaktor basierend auf bisherigem Übungsstand, Komplexität 
+        self, ma: str, tag: int, label: str                     # und Normalisierung, speichert ihn und merkt ihn sich für spätere Protokolle
     ) -> None:
         for taetigkeit in self.taetigkeiten:
             m_vorher = max(self.m_abbau_tag[ma].get(taetigkeit, self.m_min), self.m_min)
@@ -1506,7 +1519,7 @@ class SimulationRunner:
         self.m_tag_index[ma] = tag
         self.m_tag_label[ma] = label
 
-    def _verarbeite_uebungsfaktor_fuer_neuen_tag(self, ma: str) -> None:
+    def _verarbeite_uebungsfaktor_fuer_neuen_tag(self, ma: str) -> None:        # wandelt angesammelte Pausenstunden in neue m_abbau-Werte um
         tag_vorher = self.m_tag_index.get(ma)
         label_vorher = self.m_tag_label.get(ma, self._aktuelles_label(ma))
         q_stunden = max(self.m_break_stunden.get(ma, 0.0), 0.0)
@@ -1555,7 +1568,7 @@ class SimulationRunner:
             self.m_break_stunden[ma] = 0.0
         self.m_tag_label[ma] = self._aktuelles_label(ma)
 
-    def _ermittle_kompetenzstufe(self, ma: str, taetigkeit: str, aktuelle_afz: float) -> int:
+    def _ermittle_kompetenzstufe(self, ma: str, taetigkeit: str, aktuelle_afz: float) -> int: # berechnet aus relativer AFZ-Reduktion diskrete Kompetenzstufen
         if getattr(self, "_fehlerfrei_flag", False):
             return 5
         parameter = self.kompetenz_parameter[ma][taetigkeit]
@@ -1565,8 +1578,8 @@ class SimulationRunner:
             return 5 if aktuelle_afz <= initial else 1
         reduktion = (initial - aktuelle_afz) / differenz
         reduktion = max(0, min(reduktion, 1))
-        if reduktion < 0.5:
-            return 1
+        if reduktion < 0.5:         # Wichtig: Simulation_Berechnungen.berechne_kompetenzstufe ist nur ein Hilfswerkzeug für die Auswertung nach der Simulation
+            return 1                # SimulationRunner._ermittle_kompetenzstufe ist die Laufzeitvariante im Simulator selbst, also Rechner während der Simulation
         if reduktion < 0.6:
             return 2
         if reduktion < 0.7:
@@ -1575,8 +1588,8 @@ class SimulationRunner:
             return 4
         return 5
     
-    def _wende_fehlerarme_ausfuehrungszeit_an(
-        self,
+    def _wende_fehlerarme_ausfuehrungszeit_an(      # Kürzt in fehlerarmer Simulationen  (Fehlerquote = 0.02) die AFZ auf einen Mindestwert 
+        self,                                       # zwischen Grenzwert und definierter Reduktionsschwelle
         ma: str,
         taetigkeit: str,
         aktuelle_afz: float,
@@ -1591,7 +1604,7 @@ class SimulationRunner:
         ziel_afz = max(parameter["grenzwert"], ziel_afz)
         return min(aktuelle_afz, ziel_afz)
     
-    def _ermittle_fehlerquote(
+    def _ermittle_fehlerquote(                      # leitet eine Fehlerquote aus stufenspezifischen Parametern und Standardwerten ab
         self,
         ma: str,
         taetigkeit: str,
@@ -1614,8 +1627,8 @@ class SimulationRunner:
             return max(0.0, min(1.0, 1 - reduktion_rel))
         return 0.0
 
-    def _ermittle_outputmenge(self, ma: str, taetigkeit: str) -> float:
-        konfig = getattr(self.eingabe, "output_pro_ausfuehrung", {})
+    def _ermittle_outputmenge(self, ma: str, taetigkeit: str) -> float:     # falls eine andere Outputmenge pro Ausführung (z.B. 2 Stücke pro Ausführung) 
+        konfig = getattr(self.eingabe, "output_pro_ausfuehrung", {})        # im Eingabe-Modul hinterlegt wird, wird sie genutzt; ansosnten immer 1
         if isinstance(konfig, dict):
             if taetigkeit in konfig and not isinstance(konfig[taetigkeit], dict):
                 return float(konfig[taetigkeit])
@@ -1627,7 +1640,7 @@ class SimulationRunner:
                     return float(werte.get(ma, werte.get("default", 1)))
         return 1.0
 
-    def _simulation_abgeschlossen(self, ma: str) -> bool:
+    def _simulation_abgeschlossen(self, ma: str) -> bool:     # prüft, ob ein externer Zieltag oder das maximale Simulationszeitlimit erreicht wurde
         if (
             self._simulation_stop_tag is not None
             and self.arbeitstag_zaehler.get(ma, 0) >= self._simulation_stop_tag
@@ -1635,7 +1648,7 @@ class SimulationRunner:
             return True
         return self.simulationszeit[ma] >= self.simulationszeit_limit
 
-    def _beginne_neuen_tag(self, ma: str) -> None:
+    def _beginne_neuen_tag(self, ma: str) -> None:     # Reset der Tagesstände (Arbeitszeit, Runden, etc.) und Aufruf des Übungsfaktor-Updates für neuen Arbeitstag
         self._verarbeite_uebungsfaktor_fuer_neuen_tag(ma)
         self.zustand_arbeitszeit[ma] = float(self.gesamt_arbeitszeit_pro_tag)
         self.runde_index[ma] = 0
@@ -1646,8 +1659,8 @@ class SimulationRunner:
         self._arbeitstag_beendet[ma] = False
         self._runde_event_marker[ma] = set()
 
-    def _runde_abschliessen(self, ma: str) -> None:
-        self.runde_index[ma] += 1
+    def _runde_abschliessen(self, ma: str) -> None:     # erhöht den Rundenzähler und lädt die Restarbeitszeit der nächsten Runde oder beendet den Arbeitstag, 
+        self.runde_index[ma] += 1                       # falls keine weiteren Runden existieren
         if self.runde_index[ma] < len(self.arbeitsrunden):
             self.runde_restzeit[ma] = float(
                 self.arbeitsrunden[self.runde_index[ma]]["arbeitszeit"]
@@ -1655,8 +1668,8 @@ class SimulationRunner:
         else:
             self.zustand_arbeitszeit[ma] = 0.0
 
-    def _simuliere_bis_tagesende(self, ma: str, fehlerfrei: bool) -> None:
-        while True:
+    def _simuliere_bis_tagesende(self, ma: str, fehlerfrei: bool) -> None:      # Hauptschleife pro Mitarbeitendem: verarbeitet Tagesereignisse,führt Jobs aus,  
+        while True:                                                             # beendet Tage und prüft Ziele, bis der Tag abgeschlossen ist oder die Simulation stoppt
             if self._simulation_abgeschlossen(ma):
                 return
 
@@ -1738,7 +1751,7 @@ class SimulationRunner:
                 )
                 self._runde_abschliessen(ma)
 
-    def run(
+    def run(                                                    # führt die komplette Simulation aus, einmal mit und einmal ihne Fehler
         self,
         *,
         fehlerfrei: bool = False,
@@ -1777,7 +1790,7 @@ class SimulationRunner:
         self._ziele_pruefen_deaktiviert = False
         self._externes_tag_limit = None
         self._finalisiere_output()
-        return Simulationsergebnis(
+        return Simulationsergebnis(             # Output der Simulation = alle Ergebnisse, Sheets, etc.
             self.output_data_all,
             self.job_history,
             self.kompetenz_protokoll,
@@ -1789,9 +1802,9 @@ class SimulationRunner:
             },
         )
 
-    def _arbeite_job(
-        self,
-        tag: int,
+    def _arbeite_job(                                           # simuliert einen Arbeitsdurchlauf: bestimmt Tätigkeit, Lern-/Fehlerparameter,  
+        self,                                                   # verarbeitet Output/Ausschuss, aktualisiert Tabellen, Vergessenswerte und 
+        tag: int,                                               # Protokolle und gibt die benötigte Zeit zurück
         ma: str,
         job: str,
         runden_index: int,
@@ -1953,8 +1966,8 @@ class SimulationRunner:
         self.letzte_iteration[ma] = i
         return aktuelle_afz
 
-    def _fuehre_pause_durch(self, ma: str, pause_dauer: float, index: Optional[int]) -> None:
-        if pause_dauer <= 0:
+    def _fuehre_pause_durch(self, ma: str, pause_dauer: float, index: Optional[int]) -> None:       # simuliert Pausen, trägt Vergessenseffekte in DataFrames ein und
+        if pause_dauer <= 0:                                                                        # aktualisiert AFA-/AFZ-Werte, falls bereits mind. ein Durchlauf der Tätigkeit existiert
             return
         self.logger.info(f"Pause {pause_dauer/60:.0f} Minuten für {ma}")
         self._add_simulationszeit(ma, pause_dauer)
@@ -1981,9 +1994,9 @@ class SimulationRunner:
             self.output_data_all[label][t].loc[index, "VG_Dauer"] = self.vergessensdauer[ma][t]
             self.AFZ[ma][t] = self.AFZ_post[ma][t]
 
-    def _beende_arbeitstag(self, ma: str, tag: int) -> bool:
-        index = self.letzte_iteration[ma]
-        if self._arbeitstag_beendet[ma]:
+    def _beende_arbeitstag(self, ma: str, tag: int) -> bool:        # Arbeitstag wird als beendet markiert (Simulation wird beendet, falls Zähler für Betrachtungszeitraum erreicht wird), 
+        index = self.letzte_iteration[ma]                           # Feierabend/Wochenend-Abwesenheiten und Kompetenzwerte werden verarbeitet
+        if self._arbeitstag_beendet[ma]:                            # bei Simulation mit Ziel: aktualisiert Ziele und entscheidet, ob weitere Tage simuliert werden
             return True
         label = self._aktuelles_label(ma)
         self.logger.info(
@@ -2025,6 +2038,7 @@ class SimulationRunner:
                     "Ereignis": "Feierabend",
                 }
             )
+            
         self._aktualisiere_uebungsfaktor_aufbau(ma, aktueller_tag, label)
         if wochenende_start:
             self.logger.info(f"Wochenende für {ma}")
@@ -2107,8 +2121,8 @@ class SimulationRunner:
             self.after_day(self._letzter_abgeschlossener_tag)
         return True
 
-    def _set_simulationsziel_ergebnis(
-        self,
+    def _set_simulationsziel_ergebnis(      # registriert den Tag, an dem ein Simulationsziel erstmals erreicht und verhindert, dass spätere Ereignisse diesen Status überschreiben
+        self,                               # sobald ein gültiger Eintrag vorliegt, aktualisiert sie den internen Stopp-Tag 
         tag: int,
         ziel: str,
         wert: Optional[float],
@@ -2137,7 +2151,7 @@ class SimulationRunner:
         if meldung:
             self.logger.info(meldung)
 
-    def _berechne_durchschnittliche_fehlerquote(self, tag: int) -> Optional[float]:
+    def _berechne_durchschnittliche_fehlerquote(self, tag: int) -> Optional[float]:     # aggregiert Feierabend-Fehlerquoten über alle Personen für einen Tag und liefert den Mittelwert 
         werte: List[float] = []
         for protokoll in self.kompetenz_protokoll.values():
             for eintrag in protokoll:
@@ -2153,10 +2167,10 @@ class SimulationRunner:
             return None
         return float(mean(werte))
 
-    def _berechne_tagesproduktivitaet(self, tag: int) -> Optional[float]:
+    def _berechne_tagesproduktivitaet(self, tag: int) -> Optional[float]:     # Gesamtoutput (ohne Defekt) eines Tages wird ermittelt
         return berechne_outputsumme_fuer_tag(self.job_history, tag)
 
-    def _berechne_kompetenzmetriken(self, tag: int) -> Optional[Dict[str, float]]:
+    def _berechne_kompetenzmetriken(self, tag: int) -> Optional[Dict[str, float]]:     # berechnet Mittelwert und Varianz der Kompetenzstufen zum Feierabend eines Tages 
         werte: List[float] = []
         for protokoll in self.kompetenz_protokoll.values():
             for eintrag in protokoll:
@@ -2177,8 +2191,8 @@ class SimulationRunner:
             "kompetenz_varianz": varianz,
         }
 
-    def _pruefe_simulationsziele(self, aktueller_tag: int) -> bool:
-        extern_limit = self._externes_tag_limit
+    def _pruefe_simulationsziele(self, aktueller_tag: int) -> bool:     # evaluierte alle aktiven Zielschwellen für den aktuellen Tag anhand seiner Kennzahlen
+        extern_limit = self._externes_tag_limit                         # (Produktivität, Kompetenz, Qualität oder maximale Laufzeit) und entscheidet, ob die Simulation beendet wird
         if extern_limit is not None and aktueller_tag >= extern_limit:
             if self._simulation_stop_tag is None:
                 self._simulation_stop_tag = extern_limit
@@ -2296,7 +2310,7 @@ class SimulationRunner:
 
         return False
 
-    def _verarbeite_abwesenheit(
+    def _verarbeite_abwesenheit(     # verarbeitet eine Abwesenheitsdauer für jeden Arbeiter und entscheidet, ob der Übungsfaktor verändert werden muss
         self,
         ma: str,
         dauer: float,
@@ -2330,8 +2344,8 @@ class SimulationRunner:
             self.output_data_all[label][t].loc[index, "VG_Dauer"] = self.vergessensdauer[ma][t]
             self.AFZ[ma][t] = self.AFZ_post[ma][t]
 
-    def _finalisiere_output(self) -> None:
-        self._finalisiere_uebungsfaktor_log()
+    def _finalisiere_output(self) -> None:      # schließt die Übungsfaktorprotokolle ab, setzt den letzten Simulationstag 
+        self._finalisiere_uebungsfaktor_log()   # und trimmt, falls nötig, die protokollierte Ergebnisse außerhalb des betrachteten Zeitraums
         cutoff_tag = self._simulation_stop_tag or self._letzter_abgeschlossener_tag
         if cutoff_tag:
             cutoff_int = int(cutoff_tag)
@@ -2340,7 +2354,7 @@ class SimulationRunner:
         else:
             self._letzter_simulationstag = None
 
-    def _finalisiere_uebungsfaktor_log(self) -> None:
+    def _finalisiere_uebungsfaktor_log(self) -> None:     # ausstehende Übungsfaktor-Einträge und schließt Übungsfaktorprotokollierung ab 
         for ma in self.aktive_mitarbeitende:
             tag = self.m_tag_index.get(ma)
             label = self.m_tag_label.get(ma, self._aktuelles_label(ma))
@@ -2410,11 +2424,11 @@ class SimulationRunner:
 
                 self.output_data_all[label][t] = df
 
-    def _trim_ergebnisse_bis_tag(self, max_tag: int) -> None:
-        if max_tag <= 0:
+    def _trim_ergebnisse_bis_tag(self, max_tag: int) -> None:       # trimmt Ergebnisse, die außerhalb des relevanten Zeitraums liegen,  
+        if max_tag <= 0:                                            # z.B. falls eine Runde vom Folgetag nach dem Betrachtungszeitraum simuliert wird
             return
 
-        def _tagwert(raw: Any) -> Optional[int]:
+        def _tagwert(raw: Any) -> Optional[int]:     # Hilfsfunktion, die beliebige Eingaben (z. B. Strings, Floats oder bereits numerische Werte) robust in ganze Tagesnummern überführt
             if raw is None:
                 return None
             try:

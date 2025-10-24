@@ -12,11 +12,9 @@ Abwesenheit_2 = 3600*64  # Abwesenheit am Wochenende = 64h (10h + 48 + 6h)
 ZI = 3600  # hat einfluss auf die Vergessenskurve (je größer das Zeitintervall [ZI] gewählt desto langsamer wird vergessen)
 
 '''Job-Parameter'''
-##########
-# EINGABE ERFORDERLICH:
+
 jobs = ["J1", "J2", "J3"]  # Jobs und ihre Zuordnung zu Tätigkeiten
 taetigkeiten_liste = ["T1", "T2", "T3", "T4", "T5"]
-# taetigkeiten_liste = ["T1", "T2", "T3", "T4", "T5", "T6"]
 jobs_zuordnung = {
     "J1": ["T1", "T2"],  # J1 erfordert T1 und T3
     "J2": ["T2", "T3"],  # J2 erfordert T2 und T3
@@ -30,7 +28,7 @@ uebungsfaktor_parameter = {
     "m_min": 1.0,
     "m_max": 5.0,
     "alpha": 1.0,
-    "n_norm": 300.0,
+    "n_norm": 200.0,
     "q_min_stunden": 1.0,
 }
 
@@ -67,16 +65,16 @@ jobprofil_aenderungen = [
 ]
 
 # Ziele, die einen vorzeitigen Stopp der Simulation auslösen können
-# (leer lassen, wenn keine automatischen Stopps gewünscht sind)
+# (leer lassen bzw. auskommentieren, wenn keine automatischen Stopps gewünscht sind)
 simulationsziele = {
     # "fehlerquote": 0.063,  # Durchschnittliche Fehlerquote aller Mitarbeitenden
     # "produktivitaet": 250,  # Gesamtoutput (Output_gut) pro Tag über alle Jobs
-    # "kompetenzziel": {"durchschnitt": 3.0, "varianz": 0.20},
+    # "kompetenzziel": {"durchschnitt": 3.0, "varianz": 0.20}, # Durchschnittliche Kompetenz der gesamten Belegschaft
     "max_tage": 20,  # Maximale Anzahl an Tagen, falls Ziele nicht erreicht werden
 }
 
 
-# Geplante Produktionsstörungen (Stillstände je Tag/Runde/Job)
+# Geplante Produktionsstörungen (Stillstände je Tag/Runde/Job), Dauer = Anzahl der Tage, für die das Problem eintrifft ab dem Starttag
 produktionsstoerungen = [
     # {
     #     "start_tag": 3,
@@ -101,14 +99,12 @@ produktionsstoerungen = [
     # },
 ]
 
-##########
 
 '''Mitarbeitenden-Parameter'''
-##########
 # Liste der aktiven Mitarbeitenden in der Simulation
 mitarbeitende = ["MA1", "MA2", "MA3"]
 
-# Standardisierte Planung von Personalrisiken (Ausfälle & Fluktuationen)
+# Standardisierte Planung von Personalrisiken (Ausfälle & Fluktuationen), Starttag und Dauer funktionieren genau wie bei Produktionsstörungen
 personalrisiken = {
     # "ausfaelle": [
     #     {"mitarbeiter": "MA1", "start_tag": 2, "dauer": 2},
@@ -120,7 +116,7 @@ personalrisiken = {
     # ],
 }
 
-# Standardparameter für Ersatzkräfte (EMA)
+# Standardparameter für Ersatzkräfte (EMA), EMA werden eingeführt, sobald ein Arbeiter ausfällt bzw. austritt
 ersatz_standardparameter = {
     "t_initiale_AFZ": {
         "T1": 123.333,
@@ -168,7 +164,7 @@ VF_MA = {
     for ma, werte in LF_MA.items()
 }
 
-# Grenzwerte für Mitarbeitende sind maschinell bedingt und daher identisch
+# Grenzwert-Faktoren für Mitarbeitende sind maschinell bedingt und daher i.d.R. identisch
 GW_MA = {
     "MA1": {"T1": 0.3, "T2": 0.4, "T3": 0.2, "T4": 0.25, "T5": 0.25},
     "MA2": {"T1": 0.3, "T2": 0.4, "T3": 0.2, "T4": 0.25, "T5": 0.25},
@@ -205,10 +201,10 @@ fehlerquote_parameter = {
     for ma in mitarbeitende
 }
 
-# Geplanter Output pro Ausführung einer Tätigkeit (Stückzahl)
+# Geplanter Output pro Ausführung einer Tätigkeit (Stückzahl pro Job ist immer 1)
 output_pro_ausfuehrung = {taetigkeit: 1 for taetigkeit in taetigkeiten_liste}
 
-# Arbeitsrunden und Job-Zuordnung (müssen ein Tag ergeben)
+# Arbeitsrunden und Job-Zuordnung (müssen einen Tag bzw. 8h ergeben)
 arbeitsrunden = [
     {
         "name": "Runde 1",
@@ -250,8 +246,7 @@ Schichtdauer = arbeitszeit_pro_tag + \
 Pausen = gesamt_pausenzeit  # Gesamtpausenzeit pro Schicht (60 Minuten)
 
 
-########## Lern- und Vergessenskurven Initialisieren##########
-# Initialisierung der Lern- und Vergessenskurven pro Mitarbeitendem
+''' Lern- und Vergessenskurven Initialisieren '''
 lernkurve_mitarbeiter = {
     ma: Lernkurve(
         t_initiale_AFZ=t_initiale_AFZ[ma],
@@ -272,4 +267,4 @@ vergessenskurve_mitarbeiter = {
     )
     for ma in mitarbeitende
 }
-##########
+
